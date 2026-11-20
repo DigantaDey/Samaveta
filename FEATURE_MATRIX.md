@@ -31,8 +31,11 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | VOICE-02 | TTS + voice selection | NOT_STARTED | — | — |
 | VOICE-03 | Voice Lab UI | NOT_STARTED (status screen only) | `ui/screens/StatusScreens.kt` | Reports unavailability honestly |
 | VOICE-04 | Speaker identification | NOT_STARTED | — | — |
-| BRW-01 | Agent browser + DOM extraction | NOT_STARTED | — | — |
-| BRW-02 | Human-verification handoff | NOT_STARTED | — | Release blocker for browser |
+| BRW-01 | Browser navigation/interaction policy | TESTED | `browser/AgentBrowser.kt` | `BrowserTest` (36); no WebView wiring |
+| BRW-02 | Human-verification handoff | TESTED (policy) | `BrowserSession` | any challenge suspends interaction; UI handoff not built |
+| BRW-03 | Reader mode / bounded page context | TESTED | `ReaderMode` | sentence-scoped boilerplate removal, sentence-boundary truncation |
+| SEC-07 | Action pipeline: authorize→confirm→execute→verify→audit | TESTED | `security/ActionPipeline.kt` | `ActionPipelineTest` (26) |
+| ORC-01 | LAYA plan execution under SAMAVETA authority | TESTED | `orchestration/PlanRunner.kt` | `PlanRunnerTest` (23); rejects undeclared capabilities |
 | INT-01 | Deduplication | TESTED | `intelligence/InformationPipeline.kt` | 4 dedupe tests |
 | INT-02 | Entity extraction with provenance | TESTED | `EntityExtractor` | method + confidence asserted |
 | INT-03 | Date handling without fabrication | TESTED | `Dates` | unknown stays unknown |
@@ -50,7 +53,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | SEC-05 | No false success | TESTED | `ActionVerifier` | type-enforced |
 | SEC-06 | Encrypted storage via Keystore | NOT_STARTED | — | dependency declared only |
 | CAP-01 | Notification/messaging/calendar/files capabilities | NOT_STARTED | — | authorization layer ready |
-| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 163/163 |
+| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 278/278 |
 | QLT-02 | Lint + static analysis in CI | IMPLEMENTED | CI `lintDebug` | unrun here |
 | QLT-03 | Instrumentation / UI tests | NOT_STARTED | — | — |
 | QLT-04 | Physical-device verification | NOT_STARTED | — | **blocks any VERIFIED status** |

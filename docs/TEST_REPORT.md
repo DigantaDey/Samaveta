@@ -10,7 +10,7 @@
 
 | Area | Executed? | Result |
 |---|---|---|
-| `core` unit tests | **Yes** — real JVM | 152/152 pass |
+| `core` unit tests | **Yes** — real JVM | 267/267 pass |
 | App pure-logic unit tests | **Yes** — real JVM | 11/11 pass |
 | Android UI compilation | No — no Android SDK in this environment | Deferred to CI |
 | Lint / static analysis | No | Deferred to CI |
@@ -24,7 +24,7 @@ $ ./tools/jvm-verify/verify.sh
 == compiling core tests
 == compiling app pure logic (Android-free sources only)
 == running tests
-Tests run: 163, Passed: 163, Failed: 0, Skipped: 0
+Tests run: 278, Passed: 278, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -116,6 +116,55 @@ un-muted a muted topic; fixed and covered.
 **Note on scope.** `InjectionDetector` is a detector, not a boundary. The boundary is the
 deterministic validator + authorizer pair; the detector exists so untrusted content is quarantined
 and surfaced in diagnostics.
+
+### 3.6b Agent browser (hostile-content surface)
+
+| Case | Result |
+|---|---|
+| `javascript:`, `data:`, `blob:`, `file:` schemes blocked | PASS |
+| Custom schemes (`intent:`, `tel:`, `mailto:`) handed to the user, never auto-opened | PASS |
+| Loopback / private IPv4 / `.local` / link-local metadata IP refused | PASS |
+| Agent-initiated navigation must be https | PASS |
+| Allowlist matches host-or-subdomain only (`notwikipedia.org` refused) | PASS |
+| Userinfo spoofing (`trusted.com@evil.com`) refused | PASS |
+| Password fields never typed into | PASS |
+| Invisible or disabled elements never clicked | PASS |
+| Submit / navigation / paywall / login wall requires confirmation | PASS |
+| Any verification challenge suspends all interaction | PASS |
+| Element refs are generation-scoped and stale after navigation | PASS |
+| Reader mode strips boilerplate per sentence, keeps glued real content | PASS |
+| Reader mode never returns an empty document; falls back with low confidence | PASS |
+| Bounded context cuts at a sentence boundary | PASS |
+
+### 3.6c Action pipeline and plan execution
+
+| Case | Result |
+|---|---|
+| Denied capability never reaches the executor | PASS |
+| Emergency stop beats a granted capability | PASS |
+| Mutating action without confirmation refused before execution | PASS |
+| Forged confirmation token refused | PASS |
+| Confirmation replay refused (single-use) | PASS |
+| Confirmation bound to one target | PASS |
+| **Expired confirmation refused** — regression test for a real expiry bug | PASS |
+| SUCCEEDED requires confirmed evidence | PASS |
+| Silent integration reported UNCONFIRMED, never success | PASS |
+| Thrown exception on a mutating action → UNCONFIRMED (not FAILED) | PASS |
+| Thrown exception on a read-only action → FAILED | PASS |
+| Missing executor reported instead of pretending success | PASS |
+| Every outcome audited exactly once | PASS |
+| Plan using an undeclared capability rejected before running | PASS |
+| Plan naming a nonexistent capability rejected | PASS |
+| Out-of-order / duplicate / non-zero-based step indices rejected | PASS |
+| Runaway plan (> 24 steps) and oversized instruction rejected | PASS |
+| Declined confirmation stops the task with nothing executed | PASS |
+| User approval cannot substitute for a missing grant | PASS |
+| Cancellation stops at a step boundary, remaining steps NOT_RUN | PASS |
+| Failed step stops the plan; skipped steps reported NOT_RUN | PASS |
+
+**A test caught a real defect:** `ConfirmationBroker.grant()` deleted the pending request that
+`consume()` used to check expiry, so a granted confirmation never expired. Expiry now lives on the
+`ConfirmationGrant` itself and is covered by `expiredConfirmationIsRefusedEvenAfterItWasGranted`.
 
 ### 3.6 Task lifecycle and recovery (Scenario J)
 

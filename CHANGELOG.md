@@ -7,7 +7,7 @@ after a musical instrument.
 
 ### Added
 
-**Domain core (`:core`, pure Kotlin, 152 unit tests)**
+**Domain core (`:core`, pure Kotlin, 278 unit tests)**
 - `json` — dependency-free JSON parser/writer that rejects duplicate keys, control characters,
   trailing content and malformed numbers, and reports precise error positions. Integers keep their
   literal so 64-bit values survive parsing.
@@ -34,6 +34,21 @@ after a musical instrument.
   escalation, tool-call smuggling and hidden text.
 - `core` — task state machine with process-recovery semantics: interrupted tasks need an explicit
   decision, unconfirmed effects are never auto-retried, resume skips verified steps.
+- `modelruntime` — `ModelResourceManager` with a memory budget: duplicate acquires share one handle,
+  large models evict idle ones first, in-use models are never evicted, thermal pressure sheds
+  prefetched then idle models, and failed loads are memoised against retry storms.
+- `browser` — `BrowserPolicy` that decides navigation and interaction before a page is touched:
+  dangerous schemes blocked, custom schemes handed to the user, loopback/private/LAN hosts refused,
+  https required for agent navigation, allowlists matched host-or-subdomain only (no userinfo
+  spoofing), password fields never filled, verification challenges suspending all interaction, and
+  generation-scoped element refs that go stale on navigation. `ReaderMode` removes boilerplate
+  sentence-by-sentence and truncates at sentence boundaries.
+- `security` — `ActionPipeline`, the single sanctioned path from a proposed action to a user-facing
+  outcome: authorize → confirm → execute → verify → audit. Success is unrepresentable without
+  confirmed evidence, and a denial never reaches the executor.
+- `orchestration` — `PlanRunner` executes a LAYA plan under SAMAVETA's authority. Undeclared or
+  unknown capabilities reject the plan before anything runs; each step is reported honestly, skipped
+  steps are reported as NOT_RUN, and cancellation stops at a step boundary.
 
 **Android app (`:app`, not yet compiled — see `PROJECT_STATUS.md`)**
 - Gradle/AGP/Kotlin/Compose/Hilt/Room/DataStore/WorkManager configuration, version catalog,
@@ -65,7 +80,13 @@ after a musical instrument.
 - Model-download validation threw instead of returning a failure, risking a caller treating a
   refusal as success.
 - Structured-output schema paths were unprefixed in nested validation, misreporting failing fields.
+- **Security:** a granted confirmation never expired. `ConfirmationBroker.grant()` removed the
+  pending request that `consume()` read the deadline from, so an approval stayed valid forever.
+  Expiry now travels with the `ConfirmationGrant` and is asserted by a regression test.
+- `ActionPipeline` required an approval token that no component could legitimately mint, so every
+  confirmation-gated action was unreachable. Approvals now go through `ActionPipeline.approve()`.
 
 ### Known gaps
 See `KNOWN_LIMITATIONS.md`. In short: no Android build yet, no model runtime, LAYA not connected, no
-voice/vision/browser/capabilities, and nothing verified on a physical device.
+voice/vision/capability integrations (their policy layers are tested, their Android integrations are
+not written), and nothing verified on a physical device.
