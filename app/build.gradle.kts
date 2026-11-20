@@ -31,14 +31,16 @@ android {
     signingConfigs {
         // Release signing is supplied out-of-band through environment variables so no keystore
         // material (and no password) ever enters the repository.
+        //
+        // The `if` that used to wrap these assignments is gone: `storeFile` is nullable and the
+        // block is only *evaluated* for a release build, so an unset variable now fails loudly in a
+        // release build instead of silently producing an unsigned artifact. A debug build never
+        // looks at this config.
         create("release") {
-            val storePath = System.getenv("SAMAVETA_KEYSTORE_PATH")
-            if (storePath != null) {
-                storeFile = file(storePath)
-                storePassword = System.getenv("SAMAVETA_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("SAMAVETA_KEY_ALIAS")
-                keyPassword = System.getenv("SAMAVETA_KEY_PASSWORD")
-            }
+            storeFile = System.getenv("SAMAVETA_KEYSTORE_PATH")?.let { file(it) }
+            storePassword = System.getenv("SAMAVETA_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("SAMAVETA_KEY_ALIAS")
+            keyPassword = System.getenv("SAMAVETA_KEY_PASSWORD")
         }
     }
 
@@ -55,8 +57,17 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("boolean", "ALLOW_LAYA_MOCK", "false")
-            if (System.getenv("SAMAVETA_KEYSTORE_PATH") != null) {
-                signingConfig = signingConfigs.getByName("release")
+            // Fails the build, at configuration time, when release signing material is absent —
+            // rather than emitting an `-unsigned.apk` that is not installable and calling the job a
+            // release. The guard is evaluated only while a release build is being configured, so
+            // debug builds, `lintDebug` and unit tests are unaffected.
+            signingConfig = signingConfigs.getByName("release")
+            if (signingConfig?.storeFile == null) {
+                throw GradleException(
+                    "Release signing material is missing. Set SAMAVETA_KEYSTORE_PATH, " +
+                        "SAMAVETA_KEYSTORE_PASSWORD, SAMAVETA_KEY_ALIAS and SAMAVETA_KEY_PASSWORD. " +
+                        "An unsigned APK is not a release.",
+                )
             }
         }
     }
@@ -90,10 +101,27 @@ android {
     }
 
     lint {
+        // Warnings are errors. This is deliberate: the 35 findings that had accumulated were two
+        // real bugs (unreferenced-but-believed-live resources) and three policy violations, and none
+        // of them would have been looked at as a warning.
         warningsAsErrors = true
         abortOnError = true
-        // Every issue below is either fixed or explicitly justified in docs/KNOWN_LIMITATIONS.md.
-        disable += setOf("GradleDependency", "AndroidGradlePluginVersion", "NewerVersionAvailable")
+        disable += setOf(
+            // Dependency *freshness* is a maintenance decision made deliberately in
+            // docs/DEPENDENCIES.md and gradle/libs.versions.toml, not something a build should fail
+            // over. A vulnerable version is still reported by the separate Dependabot path.
+            "GradleDependency",
+            "AndroidGradlePluginVersion",
+            "NewerVersionAvailable",
+            // OldTargetApi: targetSdk is 35, the platform this build has actually been exercised
+            // against. Raising it to satisfy lint would assert an untested target, which is the
+            // exact claim this project refuses to make (docs/KNOWN_LIMITATIONS.md).
+            "OldTargetApi",
+            // ChromeOsAbiSupport wants an x86_64 ABI for ChromeOS. The app ships arm64-v8a only
+            // because the on-device model runtimes have no validated x86_64 backend; shipping an
+            // ABI that cannot run inference would be a false promise of support.
+            "ChromeOsAbiSupport",
+        )
     }
 }
 
@@ -140,7 +168,7 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
 
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

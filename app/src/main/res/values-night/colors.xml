@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The only platform-level colour: the window background, so the correct surface is painted before
+  Compose's first frame (no white flash on a dark theme).
+-->
 <resources>
     <color name="samaveta_canvas">#12100E</color>
-    <color name="samaveta_accent">#D0824F</color>
 </resources>
