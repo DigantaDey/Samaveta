@@ -140,6 +140,16 @@ class ActionPipeline(
     fun decision(capability: Capability, target: String?): AuthorizationDecision =
         authorizer.authorize(capability, target)
 
+    /**
+     * Records the user's approval of [confirmation].
+     *
+     * Approval must go through the pipeline: tokens cannot be minted anywhere else, so a caller
+     * cannot fabricate one and skip the user. Returns the token to pass to [run], or null when the
+     * approval could not be registered (typically because it expired while being shown).
+     */
+    fun approve(confirmation: ConfirmationRequest): String? =
+        if (confirmations.grant(confirmation.token, clock())) confirmation.token else null
+
     /** True when the user must approve [request] before it can run. */
     fun requiresConfirmation(capability: Capability, target: String?): Boolean =
         when (val decision = authorizer.authorize(capability, target)) {
