@@ -76,7 +76,7 @@ fi
 # Only sources with no Android imports can be compiled here; the list grows as pure-logic app code
 # (feed parsing, formatting, view-model reducers) is added. Anything needing the Android SDK is
 # built by CI instead.
-APP_SOURCES=$(find app/src/main \( -name 'ModelDownloader.kt' -o -name 'FeedParser.kt' -o -name 'IntelligenceCoordinator.kt' \) -print)
+APP_SOURCES=$(find app/src/main \( -name 'ModelDownloader.kt' -o -name 'FeedParser.kt' -o -name 'IntelligenceCoordinator.kt' -o -name 'HttpFeedFetcher.kt' \) -print)
 APP_TEST_SOURCES=$(find app/src/test -name '*.kt' -print 2>/dev/null || true)
 if [[ -n "$APP_SOURCES" && -n "$APP_TEST_SOURCES" ]]; then
   echo "== compiling app pure logic (Android-free sources only)"
