@@ -43,30 +43,46 @@ annotation class Ignore(val value: String = "")
 @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
 annotation class DisplayName(val value: String)
 
-/** Minimal subset of org.junit.Assert. Deliberately untyped to avoid overload ambiguity in Kotlin. */
+/**
+ * Minimal subset of org.junit.Assert, with JUnit 4's *message-first* argument order so tests written
+ * against this shim compile unchanged against the real JUnit 4 from Maven Central.
+ */
 object Assert {
     @JvmStatic
     fun fail(message: String? = null): Nothing = throw AssertionError(message ?: "test failed")
 
     @JvmStatic
-    fun assertTrue(condition: Boolean, message: String? = null) {
+    fun assertTrue(condition: Boolean) = assertTrue(null, condition)
+
+    @JvmStatic
+    fun assertTrue(message: String?, condition: Boolean) {
         if (!condition) fail(message ?: "expected condition to be true")
     }
 
     @JvmStatic
-    fun assertFalse(condition: Boolean, message: String? = null) {
+    fun assertFalse(condition: Boolean) = assertFalse(null, condition)
+
+    @JvmStatic
+    fun assertFalse(message: String?, condition: Boolean) {
         if (condition) fail(message ?: "expected condition to be false")
     }
 
     @JvmStatic
-    fun assertEquals(expected: Any?, actual: Any?, message: String? = null) {
+    fun assertEquals(expected: Any?, actual: Any?) = assertEquals(null, expected, actual)
+
+    @JvmStatic
+    fun assertEquals(message: String?, expected: Any?, actual: Any?) {
         if (!valuesEqual(expected, actual)) {
             fail("${message ?: "values differ"}\n  expected: <$expected>\n  actual:   <$actual>")
         }
     }
 
     @JvmStatic
-    fun assertEquals(expected: Double, actual: Double, delta: Double, message: String? = null) {
+    fun assertEquals(expected: Double, actual: Double, delta: Double) =
+        assertEquals(null, expected, actual, delta)
+
+    @JvmStatic
+    fun assertEquals(message: String?, expected: Double, actual: Double, delta: Double) {
         if (java.lang.Double.isNaN(expected) || java.lang.Double.isNaN(actual)) {
             if (!(java.lang.Double.isNaN(expected) && java.lang.Double.isNaN(actual))) {
                 fail("${message ?: "values differ"} expected=<$expected> actual=<$actual>")
@@ -79,39 +95,60 @@ object Assert {
     }
 
     @JvmStatic
-    fun assertNotEquals(unexpected: Any?, actual: Any?, message: String? = null) {
+    fun assertNotEquals(unexpected: Any?, actual: Any?) = assertNotEquals(null, unexpected, actual)
+
+    @JvmStatic
+    fun assertNotEquals(message: String?, unexpected: Any?, actual: Any?) {
         if (valuesEqual(unexpected, actual)) {
             fail("${message ?: "values should differ"} both were <$actual>")
         }
     }
 
     @JvmStatic
-    fun assertNull(value: Any?, message: String? = null) {
+    fun assertNull(value: Any?) = assertNull(null, value)
+
+    @JvmStatic
+    fun assertNull(message: String?, value: Any?) {
         if (value != null) fail("${message ?: "expected null"} was <$value>")
     }
 
     @JvmStatic
-    fun assertNotNull(value: Any?, message: String? = null) {
+    fun assertNotNull(value: Any?) = assertNotNull(null, value)
+
+    @JvmStatic
+    fun assertNotNull(message: String?, value: Any?) {
         if (value == null) fail(message ?: "expected non-null value")
     }
 
     @JvmStatic
-    fun assertSame(expected: Any?, actual: Any?, message: String? = null) {
+    fun assertSame(expected: Any?, actual: Any?) = assertSame(null, expected, actual)
+
+    @JvmStatic
+    fun assertSame(message: String?, expected: Any?, actual: Any?) {
         if (expected !== actual) fail(message ?: "expected same instance")
     }
 
     @JvmStatic
-    fun assertNotSame(unexpected: Any?, actual: Any?, message: String? = null) {
+    fun assertNotSame(unexpected: Any?, actual: Any?) = assertNotSame(null, unexpected, actual)
+
+    @JvmStatic
+    fun assertNotSame(message: String?, unexpected: Any?, actual: Any?) {
         if (unexpected === actual) fail(message ?: "expected different instances")
     }
 
     @JvmStatic
-    fun assertArrayEquals(expected: ByteArray, actual: ByteArray, message: String? = null) {
+    fun assertArrayEquals(expected: ByteArray, actual: ByteArray) = assertArrayEquals(null, expected, actual)
+
+    @JvmStatic
+    fun assertArrayEquals(message: String?, expected: ByteArray, actual: ByteArray) {
         if (!expected.contentEquals(actual)) fail(message ?: "byte arrays differ")
     }
 
     @JvmStatic
-    fun assertArrayEquals(expected: IntArray, actual: IntArray, message: String? = null) {
+    fun assertArrayEquals(expected: IntArray, actual: IntArray) = assertArrayEquals(null, expected, actual)
+
+    @JvmStatic
+    fun assertArrayEquals(message: String?, expected: IntArray, actual: IntArray) {
         if (!expected.contentEquals(actual)) fail(message ?: "int arrays differ")
     }
 

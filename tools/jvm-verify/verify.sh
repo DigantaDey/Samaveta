@@ -38,8 +38,7 @@ mkdir -p "$OUT_DIR/shim" "$OUT_DIR/main" "$OUT_DIR/test"
 
 echo "== compiling verification shim"
 "$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn \
-  tools/jvm-verify/shim/src/JunitShim.kt \
-  tools/jvm-verify/shim/src/ShimMain.kt \
+  $(find tools/jvm-verify/shim/src -name '*.kt' -print) \
   -d "$OUT_DIR/shim"
 
 echo "== compiling core (main sources)"
@@ -47,6 +46,7 @@ echo "== compiling core (main sources)"
 if ! grep -rIl --include='*.kt' -E '^\s*import\s+android\.|^\s*import\s+androidx\.' core/src/main >/dev/null 2>&1; then
   "$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn \
     $(find core/src/main -name '*.kt' -print) \
+    -cp "$OUT_DIR/shim" \
     -d "$OUT_DIR/main"
 else
   echo "error: core/src/main must not import android.* or androidx.* (it is a pure-Kotlin module)." >&2

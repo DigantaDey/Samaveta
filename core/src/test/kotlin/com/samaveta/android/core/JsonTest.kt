@@ -67,7 +67,7 @@ class JsonTest {
             fail("expected parse failure")
         } catch (e: JsonParseException) {
             assertEquals(2, e.line)
-            assertTrue(e.offset > 0, "offset should be inside the input")
+            assertTrue("offset should be inside the input", e.offset > 0)
         }
     }
 
