@@ -122,10 +122,18 @@ class LayaV1Client(
     /**
      * Runs one call with bounded retry.
      *
-     * Retry policy is intentionally narrow. A 422 will never succeed on a repeat, and repeating a
-     * request the server *did* process (a timeout) risks paying for the same inference twice, so
-     * neither is retried. Only "the server was busy" and "the connection dropped" are retried, and
-     * only once.
+     * Retry policy is intentionally narrow, and informed by observed server behaviour:
+     *
+     *  - `422` will never succeed on a repeat (the request is malformed). Not retried.
+     *  - A timeout may mean the server ran the inference anyway. Repeating it risks paying twice, so
+     *    it is surfaced as [LayaV1Failure.Timeout], not retried.
+     *  - `503` is the admission limiter. Retried once.
+     *  - `500` is **deterministic**: `laya-serve` answers `{"detail":"inference failed"}` for a missing
+     *    checkpoint, a broken graph or a missing runtime — all conditions a repeat cannot fix. It is
+     *    therefore *not* retried, despite `test_serve.py` documenting that a *foreign* ASGI
+     *    middleware's bare 503 can reach a client as this 500. Retrying that rare case would mean
+     *    retrying every genuinely broken deployment, which is the worse trade.
+     *  - A dropped connection is retried once.
      */
     private fun execute(path: String, method: String, body: String?): String {
         val baseUrl = config.baseUrl
@@ -154,7 +162,7 @@ class LayaV1Client(
                 }
                 val failure = LayaV1Codec.decodeError(response.statusCode, response.body)
                 lastError = failure
-                val retryable = failure is LayaV1Failure.Overloaded || failure is LayaV1Failure.ServerError
+                val retryable = failure is LayaV1Failure.Overloaded
                 if (!retryable || attempt == config.maxRetries) {
                     markFailure(failure)
                     throw failure

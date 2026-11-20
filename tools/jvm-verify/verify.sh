@@ -100,7 +100,14 @@ fi
 
 echo "== running tests"
 set +e
-"${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp "$OUT_DIR/shim:$OUT_DIR/main:$OUT_DIR/test:$OUT_DIR/app:$OUT_DIR/app-test:$STDLIB_JAR" SamavetaVerify \
+# Test resources (captured LAYA responses, etc.) are loaded through the classloader, so the resource
+# directories must be on the runtime classpath. kotlinc only compiles sources; it copies nothing.
+RESOURCE_DIRS=""
+for res in core/src/test/resources app/src/test/resources; do
+  if [[ -d "$res" ]]; then RESOURCE_DIRS="$RESOURCE_DIRS:$REPO_ROOT/$res"; fi
+done
+
+"${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp "$OUT_DIR/shim:$OUT_DIR/main:$OUT_DIR/test:$OUT_DIR/app:$OUT_DIR/app-test:$STDLIB_JAR$RESOURCE_DIRS" SamavetaVerify \
   com.samaveta.android.core ${APP_ROOTS:-}
 STATUS=$?
 set -e
