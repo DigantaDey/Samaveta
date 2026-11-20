@@ -42,24 +42,37 @@ def xml_files(base):
 
 
 def check_resource_refs():
-    """Every @type/name referenced from resources or the manifest must be defined."""
+    """Every @type/name referenced from resources or the manifest must be defined.
+
+    Covers `app/src/main/res` and any other source set's `res` directory (debug, release, …), so a
+    debug-only override cannot shadow a missing resource and hide the problem from the debug build.
+    """
+    res_roots = []
+    src_root = os.path.join(ROOT, "app/src")
+    if os.path.isdir(src_root):
+        for source_set in sorted(os.listdir(src_root)):
+            candidate = os.path.join(src_root, source_set, "res")
+            if os.path.isdir(candidate):
+                res_roots.append(candidate)
     defined = {"string": set(), "color": set(), "style": set(), "drawable": set(), "mipmap": set(),
                "xml": set(), "array": set(), "bool": set(), "integer": set(), "dimen": set()}
-    for path in xml_files("app/src/main/res"):
+    all_xml = [p for root in res_roots for p in xml_files(os.path.relpath(root, ROOT))]
+    for path in all_xml:
         text = read(path)
         for typ in defined:
             for name in re.findall(r"<%s[^>]*\bname=\"([^\"]+)\"" % typ, text):
                 defined[typ].add(name)
-    # Files are themselves definitions for drawable/mipmap/xml/values.
-    for path in xml_files("app/src/main/res"):
-        rel = os.path.relpath(path, os.path.join(ROOT, "app/src/main/res")).replace(os.sep, "/")
-        folder = rel.split("/")[0]
-        stem = os.path.basename(rel).rsplit(".", 1)[0]
-        kind = folder.split("-")[0]
-        if kind in ("drawable", "mipmap", "xml", "layout", "menu"):
-            defined[kind].add(stem)
+    # Files are themselves definitions for drawable/mipmap/xml/layout/menu.
+    for root in res_roots:
+        for path in xml_files(os.path.relpath(root, ROOT)):
+            rel = os.path.relpath(path, root).replace(os.sep, "/")
+            folder = rel.split("/")[0]
+            stem = os.path.basename(rel).rsplit(".", 1)[0]
+            kind = folder.split("-")[0]
+            if kind in ("drawable", "mipmap", "xml", "layout", "menu"):
+                defined[kind].add(stem)
 
-    targets = list(xml_files("app/src/main/res")) + [os.path.join(ROOT, "app/src/main/AndroidManifest.xml")]
+    targets = all_xml + [os.path.join(ROOT, "app/src/main/AndroidManifest.xml")]
     for path in targets:
         text = read(path)
         for typ, name in re.findall(r"@(\w+)/([A-Za-z0-9_.]+)", text):

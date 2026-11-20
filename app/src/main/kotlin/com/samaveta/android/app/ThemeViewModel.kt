@@ -2,6 +2,7 @@ package com.samaveta.android.app
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.samaveta.android.data.PreferencesRepository
 import com.samaveta.android.ui.design.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

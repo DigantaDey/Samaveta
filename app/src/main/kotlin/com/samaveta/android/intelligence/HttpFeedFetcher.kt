@@ -129,16 +129,25 @@ class HttpFeedFetcher(
 class UrlConnectionTransport : HttpTransport {
 
     override fun get(url: String, etag: String?, timeoutMs: Int, maxBytes: Int): HttpFetchResponse {
-        val connection = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = timeoutMs
-            readTimeout = timeoutMs
-            instanceFollowRedirects = false
-            useCaches = false
-            setRequestProperty("Accept", "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.8")
-            // A stable, honest User-Agent. No version fingerprinting beyond the product name.
-            setRequestProperty("User-Agent", "Samaveta/1.0 (feed reader)")
-            etag?.let { setRequestProperty("If-None-Match", it) }
+        // `java.net.URI(...).toURL()` rather than `java.net.URL(String)`, which is deprecated on
+        // newer JDKs; the Android build treats warnings as errors, so the modern form is mandatory,
+        // not cosmetic. The cast to HttpURLConnection happens inside the lambda so it does not leak
+        // into the type of the enclosing expression.
+        val connection = java.net.URI(url).toURL().let { parsed ->
+            (parsed.openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = timeoutMs
+                readTimeout = timeoutMs
+                instanceFollowRedirects = false
+                useCaches = false
+                setRequestProperty(
+                    "Accept",
+                    "application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.8",
+                )
+                // A stable, honest User-Agent. No version fingerprinting beyond the product name.
+                setRequestProperty("User-Agent", "Samaveta/1.0 (feed reader)")
+                etag?.let { setRequestProperty("If-None-Match", it) }
+            }
         }
 
         return try {

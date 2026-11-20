@@ -140,6 +140,10 @@ class StructuredOutputTest {
     }
 
     @Test
+    // The cast is deliberate and safe: the schema validated `steps` as a list of `Step` before this
+    // build lambda runs, and `List` is erased so Kotlin cannot prove it. Suppression is scoped to
+    // this test rather than relaxing `allWarningsAsErrors` for the module.
+    @Suppress("UNCHECKED_CAST")
     fun nestedObjectsAndListsValidateRecursively() {
         data class Step(val kind: String, val model: String)
         data class Plan(val steps: List<Step>)

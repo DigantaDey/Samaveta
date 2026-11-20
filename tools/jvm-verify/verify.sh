@@ -12,6 +12,10 @@
 #
 # This script is NOT a substitute for the Gradle/Android build; CI does that. Exit code is the
 # verdict: 0 = all tests passed, non-zero = build or test failure.
+#
+# Warnings are errors here, matching `allWarningsAsErrors` in the Gradle build. This used to pass
+# `-nowarn`, which hid a deprecation warning and an unchecked cast that both failed CI: the offline
+# harness said PASS while the real build refused to compile. Silence is not a check.
 
 set -euo pipefail
 
@@ -36,15 +40,17 @@ echo "== cleaning $OUT_DIR"
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR/shim" "$OUT_DIR/main" "$OUT_DIR/test"
 
+WERROR="${WERROR:--Werror}"
+
 echo "== compiling verification shim"
-"$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn \
+"$KOTLINC" "${JDK_HOME_ARG[@]}" $WERROR \
   $(find tools/jvm-verify/shim/src -name '*.kt' -print) \
   -d "$OUT_DIR/shim"
 
 echo "== compiling core (main sources)"
 # The core module must stay free of Android framework imports so it can run on a plain JVM.
 if ! grep -rIl --include='*.kt' -E '^\s*import\s+android\.|^\s*import\s+androidx\.' core/src/main >/dev/null 2>&1; then
-  "$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn \
+  "$KOTLINC" "${JDK_HOME_ARG[@]}" $WERROR \
     $(find core/src/main -name '*.kt' -print) \
     -cp "$OUT_DIR/shim" \
     -d "$OUT_DIR/main"
@@ -60,7 +66,7 @@ if [[ -z "$TEST_SOURCES" ]]; then
   echo "error: no test sources found under core/src/test" >&2
   exit 1
 fi
-"$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn \
+"$KOTLINC" "${JDK_HOME_ARG[@]}" $WERROR \
   -cp "$OUT_DIR/shim:$OUT_DIR/main" \
   $TEST_SOURCES \
   -d "$OUT_DIR/test"
@@ -90,9 +96,9 @@ if [[ -n "$APP_SOURCES" && -n "$APP_TEST_SOURCES" ]]; then
     fi
   done
   if [[ -s "$PURE_LIST" ]]; then
-    "$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn $(cat "$PURE_LIST") \
+    "$KOTLINC" "${JDK_HOME_ARG[@]}" $WERROR $(cat "$PURE_LIST") \
       -cp "$OUT_DIR/main:$OUT_DIR/shim" -d "$OUT_DIR/app"
-    "$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn $APP_TEST_SOURCES \
+    "$KOTLINC" "${JDK_HOME_ARG[@]}" $WERROR $APP_TEST_SOURCES \
       -cp "$OUT_DIR/shim:$OUT_DIR/main:$OUT_DIR/app" -d "$OUT_DIR/app-test"
     APP_ROOTS="com.samaveta.android.models com.samaveta.android.intelligence"
   fi
