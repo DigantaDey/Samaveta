@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Platform-level colours. These mirror ui/design/Theme.kt (Palette.WarmWhite / CharcoalDeep) so the
+  window background matches the Compose surface on first frame. UiDesignTokensTest asserts the two
+  definitions stay in sync.
+-->
+<resources>
+    <color name="samaveta_canvas">#FAF8F5</color>
+    <color name="samaveta_accent">#B06A3B</color>
+</resources>

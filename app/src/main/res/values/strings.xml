@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Brand. The Devanagari form समवेत is part of the identity and must never be transliterated. -->
+    <string name="app_name">SAMAVETA</string>
+    <string name="brand_devanagari">समवेत</string>
+    <string name="brand_tagline">Intelligence, United.</string>
+    <string name="brand_name_with_devanagari">SAMAVETA · समवेत</string>
+    <string name="release_name">SAMAVETA 1.0 — SANTOOR</string>
+    <string name="release_version" tools:ignore="TypographyDashes">1.0.0</string>
+
+    <string name="brand_content_description">SAMAVETA logo: a santoor</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Today</string>
+    <string name="nav_agent">Agent</string>
+    <string name="nav_activity">Activity</string>
+    <string name="nav_intelligence">Intelligence</string>
+    <string name="nav_memory">Memory</string>
+    <string name="nav_models">Models</string>
+    <string name="nav_voice">Voice Lab</string>
+    <string name="nav_browser">Browser</string>
+    <string name="nav_automation">Automation</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Generic states: every screen must handle all four honestly. -->
+    <string name="state_loading">Loading</string>
+    <string name="state_empty_title">Nothing here yet</string>
+    <string name="state_error_title">Something went wrong</string>
+    <string name="state_retry">Try again</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_undo">Undo</string>
+
+    <!-- LAYA status. Must never overstate the integration. -->
+    <string name="laya_not_configured">LAYA not connected</string>
+    <string name="laya_not_configured_detail">The external decision engine is not connected. SAMAVETA will use its documented local fallbacks for the tasks that support them.</string>
+    <string name="laya_mock_warning">Development build: the decision engine is a test double. Decisions are not real.</string>
+
+    <!-- Honesty strings for verification -->
+    <string name="action_unconfirmed">Attempted, but SAMAVETA could not confirm the result. Check the app directly.</string>
+    <string name="action_succeeded">Done</string>
+    <string name="action_failed">Not completed</string>
+</resources>

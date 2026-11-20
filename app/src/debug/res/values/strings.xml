@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Debug builds label themselves so a mock or unverified integration is never mistaken for
+         a production experience, including in screenshots. -->
+    <string name="app_name">SAMAVETA (debug)</string>
+</resources>

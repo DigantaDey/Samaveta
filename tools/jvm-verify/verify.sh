@@ -73,10 +73,32 @@ if [[ -z "$STDLIB_JAR" ]]; then
   exit 1
 fi
 
+APP_SOURCES=$(find app/src/main -name 'ModelDownloader.kt' -print)
+APP_TEST_SOURCES=$(find app/src/test -name '*.kt' -print 2>/dev/null || true)
+if [[ -n "$APP_SOURCES" && -n "$APP_TEST_SOURCES" ]]; then
+  echo "== compiling app pure logic (Android-free sources only)"
+  mkdir -p "$OUT_DIR/app" "$OUT_DIR/app-test"
+  # Only sources with no Android imports can be built here; anything else needs the Android SDK.
+  PURE_LIST="$OUT_DIR/app-pure-sources.txt"
+  : > "$PURE_LIST"
+  for candidate in $APP_SOURCES; do
+    if ! grep -qE '^import (android|androidx)\.' "$candidate"; then
+      echo "$candidate" >> "$PURE_LIST"
+    fi
+  done
+  if [[ -s "$PURE_LIST" ]]; then
+    "$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn $(cat "$PURE_LIST") \
+      -cp "$OUT_DIR/main:$OUT_DIR/shim" -d "$OUT_DIR/app"
+    "$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn $APP_TEST_SOURCES \
+      -cp "$OUT_DIR/shim:$OUT_DIR/main:$OUT_DIR/app" -d "$OUT_DIR/app-test"
+    APP_ROOTS="com.samaveta.android.models"
+  fi
+fi
+
 echo "== running tests"
 set +e
-"${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp "$OUT_DIR/shim:$OUT_DIR/main:$OUT_DIR/test:$STDLIB_JAR" SamavetaVerify \
-  com.samaveta.android.core
+"${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp "$OUT_DIR/shim:$OUT_DIR/main:$OUT_DIR/test:$OUT_DIR/app:$OUT_DIR/app-test:$STDLIB_JAR" SamavetaVerify \
+  com.samaveta.android.core ${APP_ROOTS:-}
 STATUS=$?
 set -e
 exit $STATUS
