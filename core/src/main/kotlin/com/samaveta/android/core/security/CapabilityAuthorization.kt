@@ -249,12 +249,20 @@ data class ConfirmationRequest(
     }
 }
 
+/**
+ * A user approval, bound to one exact action and carrying its own expiry. The expiry is stored on
+ * the grant rather than looked up from the pending request, because [ConfirmationBroker.grant]
+ * removes that request: a grant that read its deadline from a deleted record could never expire.
+ */
 data class ConfirmationGrant(
     val token: String,
     val capability: Capability,
     val target: String?,
     val grantedAtEpochMs: Long,
-)
+    val expiresAtEpochMs: Long,
+) {
+    fun isExpiredAt(now: Long): Boolean = now > expiresAtEpochMs
+}
 
 class ConfirmationBroker(private val ttlMs: Long = 120_000) {
 
@@ -286,7 +294,13 @@ class ConfirmationBroker(private val ttlMs: Long = 120_000) {
             pending.remove(token)
             return false
         }
-        granted[token] = ConfirmationGrant(token, request.capability, request.target, now)
+        granted[token] = ConfirmationGrant(
+            token = token,
+            capability = request.capability,
+            target = request.target,
+            grantedAtEpochMs = now,
+            expiresAtEpochMs = request.expiresAtEpochMs,
+        )
         pending.remove(token)
         return true
     }
@@ -298,12 +312,13 @@ class ConfirmationBroker(private val ttlMs: Long = 120_000) {
     fun consume(token: String, capability: Capability, target: String?, now: Long): AuthorizationDecision {
         val grant = granted[token]
             ?: return AuthorizationDecision.Denied(capability, DenialReason.CONFIRMATION_REQUIRED)
+        // Single-use: the grant is burned whatever the outcome, so a mismatch cannot be retried
+        // into a success by editing the target.
         granted.remove(token)
         if (grant.capability != capability || grant.target != target) {
             return AuthorizationDecision.Denied(capability, DenialReason.CONFIRMATION_MISMATCH)
         }
-        val request = pending[token]
-        if (request != null && now > request.expiresAtEpochMs) {
+        if (grant.isExpiredAt(now)) {
             return AuthorizationDecision.Denied(capability, DenialReason.CONFIRMATION_EXPIRED)
         }
         return AuthorizationDecision.Authorized(capability, requiresConfirmation = false)
