@@ -14,6 +14,10 @@ sealed interface IntegrityResult {
 /**
  * Streaming download + verification. Kept free of Android service plumbing so every failure path
  * is unit-testable with an in-memory stream.
+ *
+ * The `fetch` parameter is a seam, not a feature flag: production binds it to
+ * [ModelDownloadTransport] in `AppModule`, and a test passes an in-memory stream. Nothing in this
+ * file imports Android or a DI framework, which is what allows every failure path to run offline.
  */
 class ModelDownloader(
     private val modelDirectory: File,

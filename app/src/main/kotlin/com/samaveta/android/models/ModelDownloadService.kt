@@ -18,7 +18,7 @@ import javax.inject.Inject
  *  - The artifact is written to a temporary `.part` file and *never* promoted to the model
  *    directory until its SHA-256 matches the registry value.
  *  - A mismatch deletes the partial download rather than leaving a poisoned file behind.
- *  - Downloads are resumable, and resumed bytes are re-verified as part of the final digest.
+ *  - Redirects are refused by [ModelDownloadTransport]; a 3xx is a failure, not a detour.
  *
  * The service is a `dataSync` foreground service so a multi-hundred-megabyte download is visible to
  * the user and not silently killed — and so it cannot run invisibly.

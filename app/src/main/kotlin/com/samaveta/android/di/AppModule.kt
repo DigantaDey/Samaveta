@@ -24,11 +24,14 @@ import com.samaveta.android.core.laya.v1.LayaV1Config
 import com.samaveta.android.data.LayaSettingsRepository
 import com.samaveta.android.models.AndroidDeviceProfileProvider
 import com.samaveta.android.models.AndroidRuntimeProbe
+import com.samaveta.android.models.ModelDownloadTransport
+import com.samaveta.android.models.ModelDownloader
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Named
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -130,6 +133,22 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDeviceProfile(provider: AndroidDeviceProfileProvider): DeviceProfile = provider.snapshot()
+
+    /**
+     * Model downloader.
+     *
+     * Artifacts are written under the app's private `filesDir`, never external storage: a model is
+     * executable-adjacent input, and a world-writable directory would let another app substitute one.
+     * The transport is supplied here rather than defaulted inside [ModelDownloader], so that class
+     * stays free of both Android and the DI framework and its failure paths stay unit-testable.
+     */
+    @Provides
+    @Singleton
+    fun provideModelDownloader(@ApplicationContext context: Context): ModelDownloader =
+        ModelDownloader(
+            modelDirectory = File(context.filesDir, "models"),
+            fetch = ModelDownloadTransport::open,
+        )
 
     /**
      * Runtime capability probe.

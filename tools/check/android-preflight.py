@@ -197,6 +197,90 @@ def check_hilt_providers():
     return qualifiers
 
 
+def _strip_comments(text):
+    """Remove Kotlin comments while preserving every newline, so line numbers stay true."""
+    def blank(match):
+        return re.sub(r"[^\n]", " ", match.group(0))
+    text = re.sub(r"/\*.*?\*/", blank, text, flags=re.S)
+    return re.sub(r"//[^\n]*", blank, text)
+
+
+def _visible_names(text, root):
+    """Simple names visible unqualified in this file: imports, local declarations, same package."""
+    without_comments = _strip_comments(text)
+    visible = {m.group(1).split(".")[-1] for m in re.finditer(r"^import\s+([\w.]+)", without_comments, re.M)}
+    visible.update(re.findall(r"\b(?:class|interface|object|typealias)\s+([A-Za-z0-9_]+)", without_comments))
+    package = re.search(r"^package\s+([\w.]+)", without_comments, re.M)
+    if package:
+        pkg_dir = os.path.join(root, package.group(1).replace(".", os.sep))
+        if os.path.isdir(pkg_dir):
+            for other in os.listdir(pkg_dir):
+                if other.endswith(".kt"):
+                    visible.update(re.findall(
+                        r"\b(?:class|interface|object|typealias)\s+([A-Za-z0-9_]+)",
+                        read(os.path.join(pkg_dir, other))))
+    return visible
+
+
+def check_field_injection():
+    """`@Inject lateinit var x: T` fields must be bindable, and their types must be visible.
+
+    Dagger reports an unbound field exactly like an unbound constructor parameter
+    (`[Dagger/MissingBinding] … cannot be provided without an @Inject constructor`), but the
+    constructor scan above only ever looked at `constructor(` signatures. `ModelDownloader` was
+    field-injected into a `@AndroidEntryPoint` service and had no binding at all — a failure that
+    surfaced two CI rounds later, inside `:app:hiltJavaCompileDebug`, blamed on the *lint* step.
+    Field injection is scanned here so both injection styles are covered.
+    """
+    provided_types, injectable = _hilt_bindable_types()
+    root = os.path.join(ROOT, "app/src/main/kotlin")
+    for d, _, fs in os.walk(root):
+        for f in fs:
+            if not f.endswith(".kt"):
+                continue
+            path = os.path.join(d, f)
+            text = read(path)
+            without_comments = _strip_comments(text)
+            visible = _visible_names(text, root)
+            # A qualified annotation (`@javax.inject.Inject`) is still field injection.
+            for m in re.finditer(
+                    r"@(?:[A-Za-z0-9_]+\.)*Inject\s+(?:internal\s+)?lateinit\s+var\s+\w+\s*:\s*([A-Za-z0-9_.]+)",
+                    without_comments):
+                typ = m.group(1).split(".")[-1]
+                line = without_comments[:m.start()].count("\n") + 1
+                where = os.path.relpath(path, ROOT)
+                if typ not in visible:
+                    fail(f"{where}:{line}: field-injected {typ} is not visible (not imported, not in "
+                         f"this package)")
+                if typ not in provided_types and typ not in injectable:
+                    fail(f"{where}:{line}: field-injected {typ} has no @Provides and is not "
+                         f"@Inject-constructible — Dagger cannot build it")
+
+
+def _hilt_bindable_types():
+    """Types Hilt can resolve: @Provides return types, @Inject-constructible classes, framework."""
+    app_src, core_src = {}, {}
+    for base, sink in (("app/src/main/kotlin", app_src), ("core/src/main/kotlin", core_src)):
+        for d, _, fs in os.walk(os.path.join(ROOT, base)):
+            for f in fs:
+                if f.endswith(".kt"):
+                    sink[os.path.join(d, f)] = read(os.path.join(d, f))
+    everything = "\n".join(list(app_src.values()) + list(core_src.values()))
+    provided = {
+        "Application", "Activity", "ApplicationContext", "ViewModel", "SavedStateHandle",
+        "DataStore", "Preferences", "BuildConfig",
+    }
+    for m in re.finditer(r"fun\s+provide[A-Za-z0-9_]*\s*\(.*?\)\s*:\s*([A-Za-z0-9_.<>]+)", everything, re.S):
+        provided.add(m.group(1).split(".")[-1])
+    # The annotation may be written qualified (`@javax.inject.Inject`); it still makes the class
+    # constructor-injectable and nothing else in the scan changes.
+    injectable = set(re.findall(
+        r"class\s+([A-Za-z0-9_]+)\s*@(?:[A-Za-z0-9_]+\.)*Inject\s*constructor", everything))
+    # Hilt itself binds its own generated types and the worker factory.
+    provided.update({"HiltWorkerFactory", "WorkerFactory"})
+    return provided, injectable
+
+
 def check_types_resolve():
     """Every type used in an @Inject constructor signature must be visible at that call site.
 
@@ -263,6 +347,7 @@ def main():
     check_hilt_providers()
     check_types_resolve()
     check_unresolved_names()
+    check_field_injection()
     check_material_theme_members()
     check_delegated_smart_casts()
     if problems:
