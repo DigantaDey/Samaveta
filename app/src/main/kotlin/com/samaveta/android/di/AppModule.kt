@@ -20,6 +20,7 @@ import com.samaveta.android.core.laya.LayaIntegrationState
 import com.samaveta.android.core.laya.v1.LayaAgent
 import com.samaveta.android.core.laya.v1.LayaUrlTransport
 import com.samaveta.android.core.laya.v1.LayaV1Client
+import com.samaveta.android.core.laya.v1.LayaV1Config
 import com.samaveta.android.data.LayaSettingsRepository
 import com.samaveta.android.models.AndroidDeviceProfileProvider
 import com.samaveta.android.models.AndroidRuntimeProbe

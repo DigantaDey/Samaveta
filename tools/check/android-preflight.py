@@ -262,6 +262,7 @@ def main():
     check_manifest_classes()
     check_hilt_providers()
     check_types_resolve()
+    check_unresolved_names()
     if problems:
         print(f"Android pre-flight: {len(problems)} problem(s)")
         for p in problems:
@@ -269,6 +270,87 @@ def main():
         return 1
     print("Android pre-flight: clean")
     return 0
+
+
+
+
+
+# ---------------------------------------------------------------------------------------------
+# Unresolved simple names.
+#
+# CI reported a batch of `Unresolved reference` errors that were all one problem: a type or a
+# delegated-property accessor used without its import (Color, Dp, Shapes, ColumnScope, asStateFlow,
+# the `by` delegate). Each is cheap to detect statically, and each costs a full CI round-trip.
+# ---------------------------------------------------------------------------------------------
+
+# Simple names from the Compose/AndroidX/Kotlin surfaces the app is allowed to use, grouped by the
+# exact import that provides them. Only names that cannot be declared locally are listed, so a local
+# class of the same name does not produce a false positive.
+KNOWN_SYMBOLS = {
+    "Color": "androidx.compose.ui.graphics.Color",
+    "Dp": "androidx.compose.ui.unit.Dp",
+    "dp": "androidx.compose.ui.unit.dp",
+    "sp": "androidx.compose.ui.unit.sp",
+    "Shapes": "androidx.compose.material3.Shapes",
+    "ColumnScope": "androidx.compose.foundation.layout.ColumnScope",
+    "RowScope": "androidx.compose.foundation.layout.RowScope",
+    "BoxScope": "androidx.compose.foundation.layout.BoxScope",
+    "asStateFlow": "kotlinx.coroutines.flow.asStateFlow",
+    "ImageVector": "androidx.compose.ui.graphics.vector.ImageVector",
+    "RoundedCornerShape": "androidx.compose.foundation.shape.RoundedCornerShape",
+    "CircleShape": "androidx.compose.foundation.shape.CircleShape",
+}
+
+# `by` on a Compose `State` needs `getValue`; `var` additionally needs `setValue`. Both are
+# extension operators, so their absence is an unresolved-reference error rather than a hint.
+DELEGATE_SYMBOLS = {"getValue": "androidx.compose.runtime.getValue",
+                    "setValue": "androidx.compose.runtime.setValue"}
+
+
+def check_unresolved_names():
+    for d, _, fs in os.walk(os.path.join(ROOT, "app/src/main/kotlin")):
+        for f in fs:
+            if not f.endswith(".kt"):
+                continue
+            path = os.path.join(d, f)
+            text = re.sub(r"/\*.*?\*/", "", read(path), flags=re.S)
+            text = re.sub(r"//[^\n]*", "", text)
+            body = "\n".join(l for l in text.split("\n") if not l.startswith("import "))
+            imported = {m.group(1).split(".")[-1] for m in re.finditer(r"^import\s+([\w.]+)", text, re.M)}
+            declared = set(re.findall(
+                r"\b(?:class|interface|object|fun|val|var|typealias|enum class|fun interface)\s+([A-Za-z0-9_]+)",
+                text))
+            package = re.search(r"^package\s+([\w.]+)", text, re.M)
+            if package:
+                pkg_dir = os.path.join(ROOT, "app/src/main/kotlin", package.group(1).replace(".", os.sep))
+                if os.path.isdir(pkg_dir):
+                    for other in os.listdir(pkg_dir):
+                        if other.endswith(".kt"):
+                            declared.update(re.findall(
+                                r"\b(?:class|interface|object|fun|val|var)\s+([A-Za-z0-9_]+)",
+                                read(os.path.join(pkg_dir, other))))
+
+            for name, imp in KNOWN_SYMBOLS.items():
+                if name in declared or name in imported:
+                    continue
+                # Only report names used as a type or a qualifier, not as a property of something.
+                # A bare type position is enough: the second pattern used to require the *first*
+                # usage to be a type position, which missed `tint: Color = …` after other text.
+                # Type position (`: X`), argument start (`(X`), generic (`<X`), assignment
+                # (`= X(`), qualifier (`X.`) or an extension call (`.X(`).
+                pattern = (r":\s*%s\b|\(\s*%s\b|<\s*%s|=\s*%s\b|\.%s\s*\("
+                           % tuple([re.escape(name)] * 5))
+                if re.search(pattern, body):
+                    fail(f"{os.path.relpath(path, ROOT)}: '{name}' is used but not imported "
+                         f"(expected `import {imp}`)")
+
+            if re.search(r"\bby\s+\w", body) and "getValue" not in imported and "getValue" not in declared:
+                fail(f"{os.path.relpath(path, ROOT)}: property delegation (`by`) without "
+                     f"`import androidx.compose.runtime.getValue`")
+            if re.search(r"\bvar\s+\w+.*\bby\s+\w", body) and "setValue" not in imported \
+                    and "setValue" not in declared:
+                fail(f"{os.path.relpath(path, ROOT)}: delegated `var` without "
+                     f"`import androidx.compose.runtime.setValue`")
 
 
 if __name__ == "__main__":

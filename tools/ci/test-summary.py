@@ -22,7 +22,9 @@ def main() -> int:
     label = sys.argv[1]
     xmls = []
     for base in sys.argv[2:]:
-        xmls.extend(glob.glob(os.path.join(base, "TEST-*.xml")))
+        # Recursive: Gradle writes into `build/test-results/<task>/`, and a non-recursive glob here
+        # reported "no tests ran" on a run where 19 result files existed.
+        xmls.extend(glob.glob(os.path.join(base, "**", "TEST-*.xml"), recursive=True))
 
     if not xmls:
         print(f"::error::{label}: no JUnit XML results found — the tests did not run")
