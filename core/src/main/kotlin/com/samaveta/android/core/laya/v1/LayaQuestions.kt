@@ -154,10 +154,7 @@ object LayaQuestions {
      */
     fun read(prediction: LayaPrediction, policy: Policy = Policy()): Reading {
         if (policy.refuseOnTruncation && prediction.usage.lostEvidence) {
-            return Reading.Unusable(
-                "LAYA did not receive the whole request " +
-                    "(${prediction.usage.stateTokensDropped} token(s) dropped), so its answer cannot be trusted.",
-            )
+            return Reading.Unusable(evidenceGapOf(prediction.usage))
         }
 
         val anyAbstained = prediction.answers.values.any {
@@ -219,6 +216,28 @@ object LayaQuestions {
             requiresConfirmation = requiresConfirmation,
             rationale = rationale,
         )
+    }
+
+    /**
+     * A precise, user-facing description of why the evidence was insufficient.
+     *
+     * Three distinct causes used to be reported as "0 tokens dropped", which is both confusing and
+     * wrong: a state can be fully delivered while the *options* inside a question were collapsed into
+     * one span, which means the answer cannot tell them apart.
+     */
+    private fun evidenceGapOf(usage: LayaUsage): String = when {
+        usage.truncatedQuestions.isNotEmpty() ->
+            "LAYA cut the question(s) ${usage.truncatedQuestions.joinToString(", ")}, so the answer is based on " +
+                "less than was asked."
+        usage.stateTokensDropped > 0 ->
+            "LAYA dropped ${usage.stateTokensDropped} token(s) of what I sent, so the answer is based on less " +
+                "than was asked."
+        usage.options.values.any { it.collapsed } -> {
+            val collapsed = usage.collapsedQuestions().joinToString(", ")
+            "LAYA could not give each option of ${collapsed.ifBlank { "some questions" }} its own token span, " +
+                "so it could not tell those options apart. Nothing was acted on."
+        }
+        else -> "LAYA's answer was based on less evidence than I sent, so it cannot be trusted."
     }
 
     private fun format(value: Double): String {

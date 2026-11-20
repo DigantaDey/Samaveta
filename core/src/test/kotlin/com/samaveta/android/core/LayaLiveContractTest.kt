@@ -8,6 +8,9 @@ import com.samaveta.android.core.json.JsonValue
 import com.samaveta.android.core.laya.v1.LayaHttpResponse
 import com.samaveta.android.core.laya.v1.LayaHttpTransport
 import com.samaveta.android.core.laya.v1.LayaPredictRequest
+import com.samaveta.android.core.laya.v1.Abstention
+import com.samaveta.android.core.laya.v1.LayaAnswer
+import com.samaveta.android.core.laya.v1.LayaBatchRequest
 import com.samaveta.android.core.laya.v1.LayaQuestion
 import com.samaveta.android.core.laya.v1.LayaQuestions
 import com.samaveta.android.core.laya.v1.LayaV1Client
@@ -54,11 +57,13 @@ class LayaLiveContractTest {
         assertTrue(health.isAlive)
         assertEquals("ok", health.status)
         assertEquals("cpu", health.device)
-        // Nothing was resident because preload was off and weights were unavailable. This is a normal
-        // state, not an error, and the decoder must not invent loaded checkpoints.
-        assertTrue(health.loaded.isEmpty())
-        assertTrue(health.deviceIsPreference)
-        assertTrue(health.cpuFallbacks.isEmpty())
+        // Captured with all three checkpoints resident. `deviceIsPreference` is false because the
+        // server measured them, and `revisions` is null-per-checkpoint because this fixture's
+        // checkpoints were synthesised in-process rather than fetched with a revision.
+        assertEquals(listOf("english", "multilingual", "typed-decisions"), health.loaded)
+        assertFalse(health.deviceIsPreference)
+        assertEquals(3, health.cpuFallbacks.size)
+        assertTrue(health.cpuFallbacks.values.all { it == 0 })
     }
 
     @Test
@@ -133,21 +138,89 @@ class LayaLiveContractTest {
         assertEquals(LayaV1State.CONNECTED, c.state)
     }
 
+    // ---------------------------------------------------------------- a real 200
+
     @Test
-    fun noSuccessfulPredictionHasBeenCapturedAndThatIsRecordedNotImplied() {
-        // Guard against someone later adding a "prediction.json" fixture that was hand-written:
-        // a captured success must carry the server's own `routing` block and a zero output_tokens.
-        val resources = javaClass.classLoader.getResource("laya-live")
-        assertTrue("fixture directory must exist", resources != null)
-        val predictionFixture = javaClass.classLoader.getResourceAsStream("laya-live/prediction.json")
-        if (predictionFixture != null) {
-            val payload = predictionFixture.use { it.readBytes().toString(Charsets.UTF_8) }
-            val parsed = LayaV1Codec.decodePrediction(payload)
-            assertTrue("a captured success must include routing", parsed.routing != null)
-            assertEquals("laya generates nothing", 0, parsed.usage.outputTokens)
+    fun aRealSuccessfulPredictionDecodesEndToEnd() {
+        val prediction = LayaV1Codec.decodePrediction(fixture("prediction.json"))
+        assertEquals("laya-rl-agent", prediction.model)
+        assertEquals("laya generates nothing", 0, prediction.usage.outputTokens)
+
+        val intent = prediction.answers["intent"] as LayaAnswer.Choice
+        assertEquals("question", intent.choice)
+        assertTrue(intent.probabilities.values.all { it in 0.0..1.0 })
+        // A real gate ran: the server reported both the state and the threshold it used.
+        assertEquals(Abstention.ABSTAINED, intent.abstention)
+        assertEquals(0.5, intent.abstentionThreshold!!, 0.0001)
+
+        val noul = prediction.answers["needs_confirmation"] as LayaAnswer.Noul
+        assertEquals(Abstention.PASSED, noul.abstention)
+
+        val score = prediction.answers["sensitivity"] as LayaAnswer.Score
+        assertEquals(4, score.legend.size)
+        assertEquals("personal", (score.legend["1"] as JsonValue.Str).value)
+
+        assertEquals("english", prediction.routing!!.model)
+        assertEquals(true, prediction.routing!!.detection!!.isEnglish)
+    }
+
+    @Test
+    fun aRealResponseReportsOptionCollapsesAndWeTreatThemAsLostEvidence() {
+        // This block only exists in live payloads; the documented examples omit it. Every question
+        // here had 3-4 options collapsed to one span, so the answer separates them less than a full
+        // read would have.
+        val prediction = LayaV1Codec.decodePrediction(fixture("prediction.json"))
+        val options = prediction.usage.options
+        assertEquals(3, options.size)
+        assertTrue(options.values.all { it.total > 1 })
+        assertTrue(options.values.all { it.collapsed })
+        assertTrue(prediction.usage.lostEvidence)
+        assertEquals(setOf("intent", "needs_confirmation", "sensitivity"), prediction.usage.collapsedQuestions().toSet())
+    }
+
+    @Test
+    fun aRealResponseWithCollapsedOptionsIsRefusedWithTheRealReason() {
+        // This live capture (a tiny fixture checkpoint with a 6-token vocab) collapsed every
+        // question's options into a single span, so the answers cannot distinguish the options. The
+        // refusal must name that, not claim tokens were dropped -- it used to say "0 token(s)
+        // dropped", which was both confusing and untrue.
+        val prediction = LayaV1Codec.decodePrediction(fixture("prediction.json"))
+        val reading = LayaQuestions.read(prediction) as LayaQuestions.Reading.Unusable
+        assertTrue(reading.reason.contains("own token span"))
+        assertFalse(reading.reason.contains("0 token(s)"))
+    }
+
+    @Test
+    fun aRealBatchResponseDecodesPerResult() {
+        val results = LayaV1Codec.decodeBatch(fixture("batch.json"))
+        assertEquals(2, results.size)
+        results.forEach { prediction ->
+            val answer = prediction.answers["refund"] as LayaAnswer.Noul
+            assertTrue(answer.probabilityTrue in 0.0..1.0)
+            assertEquals(0, prediction.usage.outputTokens)
         }
-        // Otherwise: nothing to assert. The absence is documented in the fixture README and in
-        // LAYA_INTEGRATION.md §8, and must not be presented as verification.
+        // min_confidence {default: 0.0} was sent, so a gate ran and reported its state.
+        assertEquals(Abstention.PASSED, (results[0].answers["refund"] as LayaAnswer.Noul).abstention)
+    }
+
+    @Test
+    fun aRealMissingBearerIsRejectedDistinctly() {
+        val rejected = LayaV1Codec.decodeError(401, fixture("error-401-no-key.json")) as LayaV1Failure.Rejected
+        assertEquals(401, rejected.statusCode)
+        assertTrue(rejected.detail.contains("bearer"))
+    }
+
+    @Test
+    fun theBatchShapeIsTheOneTheServerAccepts() {
+        // 400 "must be an object with 'states' and 'questions' fields" is what the old
+        // states[].questions encoding produced. Encode the accepted shape and re-check it parses.
+        val encoded = LayaV1Codec.encodeBatch(
+            LayaBatchRequest(listOf(JsonValue.Str("hello")), LayaQuestions.core("en")),
+        )
+        val parsed = com.samaveta.android.core.json.Json.parseObject(encoded)
+        assertTrue(parsed.has("states"))
+        assertTrue(parsed.has("questions"))
+        assertTrue(parsed.array("states")!!.items.first() is JsonValue.Str)
     }
 
     @Test

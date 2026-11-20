@@ -9,7 +9,7 @@ import com.samaveta.android.core.json.Json
 import com.samaveta.android.core.json.JsonValue
 import com.samaveta.android.core.laya.v1.Abstention
 import com.samaveta.android.core.laya.v1.LayaAnswer
-import com.samaveta.android.core.laya.v1.LayaBatchItem
+import com.samaveta.android.core.laya.v1.LayaBatchRequest
 import com.samaveta.android.core.laya.v1.LayaHttpResponse
 import com.samaveta.android.core.laya.v1.LayaHttpTransport
 import com.samaveta.android.core.laya.v1.LayaPredictRequest
@@ -148,16 +148,21 @@ class LayaV1Test {
     }
 
     @Test
-    fun aBatchRequestWrapsStatesWithQuestions() {
+    fun aBatchRequestIsManyStatesWithOneTopLevelQuestionSet() {
+        // Verified live: LAYA answers 400 unless `questions` is at the top level. The per-state form
+        // (states[].questions) belongs to the in-process API, not the HTTP contract.
         val encoded = Json.parseObject(
             LayaV1Codec.encodeBatch(
-                listOf(
-                    LayaBatchItem(JsonValue.Str("one"), mapOf("q" to LayaQuestion.Noul(JsonValue.Str("?")))),
-                    LayaBatchItem(JsonValue.Str("two"), mapOf("q" to LayaQuestion.Noul(JsonValue.Str("?")))),
+                LayaBatchRequest(
+                    states = listOf(JsonValue.Str("one"), JsonValue.Str("two")),
+                    questions = mapOf("q" to LayaQuestion.Noul(JsonValue.Str("?"))),
                 ),
             ),
         )
         assertEquals(2, encoded.array("states")!!.items.size)
+        assertTrue("questions must be top-level", encoded.has("questions"))
+        val firstState = encoded.array("states")!!.items.first()
+        assertTrue("states must be bare states, not objects with questions", firstState is JsonValue.Str)
     }
 
     @Test

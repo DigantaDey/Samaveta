@@ -30,29 +30,22 @@ object LayaV1Codec {
         },
     )
 
-    fun encodeBatch(
-        items: List<LayaBatchItem>,
-        model: String? = null,
-        minConfidence: MinConfidence? = null,
-    ): String {
-        require(items.isNotEmpty()) { "a batch needs at least one item" }
-        return Json.write(
-            json {
-                "states" to JsonValue.Arr(
-                    items.map { item ->
-                        json {
-                            "state" to item.state
-                            "questions" to JsonValue.Obj(
-                                item.questions.mapValues { (_, question) -> encodeQuestion(question) },
-                            )
-                        }
-                    },
-                )
-                putIfNotNull("model", model)
-                minConfidence?.let { "min_confidence" to encodeMinConfidence(it) }
-            },
-        )
-    }
+    /**
+     * Encodes a batch: `states` is a plain array of states and `questions` sits at the top level.
+     * Verified against a live server, which rejects any other shape with a 400.
+     */
+    fun encodeBatch(request: LayaBatchRequest): String = Json.write(
+        json {
+            "states" to JsonValue.Arr(request.states)
+            "questions" to JsonValue.Obj(
+                request.questions.mapValues { (_, question) -> encodeQuestion(question) },
+            )
+            putIfNotNull("model", request.model)
+            request.maxLen?.let { "max_len" to it }
+            request.headMaxLen?.let { "head_max_len" to it }
+            request.minConfidence?.let { "min_confidence" to encodeMinConfidence(it) }
+        },
+    )
 
     fun encodeRoute(request: LayaRouteRequest): String = Json.write(
         json {
@@ -288,6 +281,16 @@ object LayaV1Codec {
         stateTokensDropped = nonNegativeInt(obj, "state_tokens_dropped"),
         truncated = obj.bool("truncated") ?: false,
         truncatedQuestions = obj.array("truncated_questions")?.strings() ?: emptyList(),
+        options = obj.obj("options")?.fields?.mapNotNull { (id, value) ->
+            val collapse = value as? JsonValue.Obj ?: return@mapNotNull null
+            val total = collapse.int("total") ?: return@mapNotNull null
+            val distinct = collapse.int("distinct") ?: total
+            id to LayaOptionCollapse(
+                total = total,
+                distinct = distinct,
+                tokensPerOption = collapse.int("tokens_per_option"),
+            )
+        }?.toMap() ?: emptyMap(),
     )
 
     private fun decodeRouting(obj: JsonValue.Obj): LayaRouting = LayaRouting(

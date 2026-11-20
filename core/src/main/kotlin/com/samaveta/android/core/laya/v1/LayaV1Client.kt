@@ -116,8 +116,8 @@ class LayaV1Client(
     fun predict(request: LayaPredictRequest): LayaPrediction =
         LayaV1Codec.decodePrediction(execute("/v1/systemone", "POST", LayaV1Codec.encodePredict(request)))
 
-    fun predictBatch(items: List<LayaBatchItem>): List<LayaPrediction> =
-        LayaV1Codec.decodeBatch(execute("/v1/systemone/batch", "POST", LayaV1Codec.encodeBatch(items)))
+    fun predictBatch(request: LayaBatchRequest): List<LayaPrediction> =
+        LayaV1Codec.decodeBatch(execute("/v1/systemone/batch", "POST", LayaV1Codec.encodeBatch(request)))
 
     /**
      * Runs one call with bounded retry.

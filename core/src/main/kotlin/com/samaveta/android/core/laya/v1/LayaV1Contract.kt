@@ -145,8 +145,35 @@ data class LayaPredictRequest(
     }
 }
 
-/** One entry of a batch request: the same `state` + `questions` shape, no per-item controls. */
-data class LayaBatchItem(val state: JsonValue, val questions: Map<QuestionId, LayaQuestion>)
+/**
+ * A batch request: **one** question set asked about **many** states.
+ *
+ * This shape was wrong until it was run against a live server: LAYA expects
+ * `{"states": [...], "questions": {...}}`, with `questions` at the top level, and answers
+ * `400 request body must be an object with 'states' and 'questions' fields` otherwise. The
+ * per-state question set belongs to `Router.predict_batch` in-process, not to the HTTP contract.
+ */
+data class LayaBatchRequest(
+    /** Each element is a state: text, a JSON array, or a JSON object. */
+    val states: List<JsonValue>,
+    val questions: Map<QuestionId, LayaQuestion>,
+    val model: String? = null,
+    val maxLen: Int? = null,
+    val headMaxLen: Int? = null,
+    val minConfidence: MinConfidence? = null,
+) {
+    init {
+        require(states.isNotEmpty()) { "a batch needs at least one state" }
+        require(states.size <= MAX_STATES) { "at most $MAX_STATES states per batch" }
+        require(questions.isNotEmpty()) { "a batch needs at least one question" }
+        require(questions.size <= LayaPredictRequest.MAX_QUESTIONS) { "too many questions for a batch" }
+    }
+
+    companion object {
+        /** LAYA's own batch ceiling. */
+        const val MAX_STATES = 64
+    }
+}
 
 // ------------------------------------------------------------------ answers
 
@@ -225,7 +252,25 @@ sealed interface LayaAnswer {
     ) : LayaAnswer
 }
 
-/** Whether the model actually saw everything SAMETVETA sent. */
+/**
+ * How many of a question's options kept their own token span.
+ *
+ * Observed in a live response: this is the only place the server reports that options were
+ * collapsed into a shared span, which changes how much evidence separates them. Ignoring it would
+ * mean treating a 4-option answer as if all four options had been distinguishable.
+ */
+data class LayaOptionCollapse(
+    /** Options the question defines. */
+    val total: Int,
+    /** Of those, the ones still carrying a span of their own. */
+    val distinct: Int,
+    /** Tokens the budget allowed each option, or null when none was capped. */
+    val tokensPerOption: Int?,
+) {
+    val collapsed: Boolean get() = distinct < total
+}
+
+/** Whether the model actually saw everything SAMAVETA sent. */
 data class LayaUsage(
     val inputTokens: Int,
     val outputTokens: Int,
@@ -233,16 +278,24 @@ data class LayaUsage(
     val stateTokensDropped: Int,
     val truncated: Boolean,
     val truncatedQuestions: List<QuestionId>,
+    /** Present only when some question's options lost their individual span. */
+    val options: Map<QuestionId, LayaOptionCollapse> = emptyMap(),
 ) {
     init {
         require(stateTokensDropped >= 0) { "stateTokensDropped must not be negative" }
     }
 
     /**
-     * True when a question's own window was cut, or the state lost tokens. Either means an answer
-     * may rest on less evidence than SAMAVETA supplied — the UI must be able to say so.
+     * True when a question's own window was cut, the state lost tokens, or options were collapsed.
+     * Either way an answer may rest on less evidence than SAMAVETA supplied — and the UI must be
+     * able to say so rather than implying a full read.
      */
-    val lostEvidence: Boolean get() = truncated || stateTokensDropped > 0 || truncatedQuestions.isNotEmpty()
+    val lostEvidence: Boolean
+        get() = truncated || stateTokensDropped > 0 || truncatedQuestions.isNotEmpty() ||
+            options.values.any { it.collapsed }
+
+    /** Questions whose options were collapsed, for a precise user-facing explanation. */
+    fun collapsedQuestions(): List<QuestionId> = options.filterValues { it.collapsed }.keys.toList()
 
     companion object {
         val UNKNOWN = LayaUsage(0, 0, 0, 0, false, emptyList())
