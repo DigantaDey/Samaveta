@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.samaveta.android.core.laya.v1.LayaV1Config
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,7 +28,10 @@ import javax.inject.Singleton
  */
 @Singleton
 class LayaSettingsRepository @Inject constructor(
-    private val context: Context,
+    // Qualified: an unqualified `Context` is not a Hilt binding, so this constructor would fail
+    // resolution at build time with "Context cannot be provided without an @Provides-annotated
+    // method". Found by tools/check/android-preflight.py rather than by a CI round-trip.
+    @ApplicationContext private val context: Context,
 ) {
 
     /** The persisted configuration. Reads the key only when an address is present. */

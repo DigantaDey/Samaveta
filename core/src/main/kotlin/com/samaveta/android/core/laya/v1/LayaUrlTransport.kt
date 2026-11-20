@@ -4,7 +4,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
-import java.net.URL
+import java.net.URI
 
 /**
  * The production [LayaHttpTransport], over `HttpURLConnection`.
@@ -44,23 +44,30 @@ class LayaUrlTransport(
         require(method == "GET" || method == "POST") { "unsupported method $method" }
         require(method != "GET" || body == null) { "a GET must not carry a body" }
 
-        val url = URL(path)
-        require(url.protocol == "https" || isLoopback(url)) {
+        val uri = URI(path)
+        require(uri.scheme == "https" || isLoopback(uri)) {
             "LAYA must be reached over https (loopback is allowed for on-device development): $path"
         }
 
-        val connection = (url.openConnection() as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = timeoutMs.toInt()
-            readTimeout = timeoutMs.toInt()
-            instanceFollowRedirects = false
-            useCaches = false
-            setRequestProperty("Accept", "application/json")
-            setRequestProperty("User-Agent", userAgent)
-            apiKey?.let { setRequestProperty("Authorization", "Bearer $it") }
-            if (method == "POST") {
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        // Built inside a lambda on purpose: casting to `HttpURLConnection` in the enclosing function
+        // makes the compiler infer `HttpURLConnection` as this expression's type, which produces an
+        // "unchecked cast" warning wherever the function is used by a caller that only knows the
+        // `LayaHttpTransport` interface. `core` compiles with warnings-as-errors, so that warning
+        // would fail the build rather than being ignored.
+        val connection = uri.toURL().let { url ->
+            (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = method
+                connectTimeout = timeoutMs.toInt()
+                readTimeout = timeoutMs.toInt()
+                instanceFollowRedirects = false
+                useCaches = false
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("User-Agent", userAgent)
+                apiKey?.let { setRequestProperty("Authorization", "Bearer $it") }
+                if (method == "POST") {
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                }
             }
         }
 
@@ -105,11 +112,11 @@ class LayaUrlTransport(
         return output.toString(Charsets.UTF_8.name())
     }
 
-    private fun isLoopback(url: URL): Boolean =
-        url.protocol == "http" && url.host in setOf("127.0.0.1", "localhost", "::1", "[::1]")
+    private fun isLoopback(uri: URI): Boolean =
+        uri.scheme == "http" && uri.host in LOOPBACK_HOSTS
 
     internal companion object {
-        /** Exposed for tests that assert the loopback exception is narrow. */
+        /** Deliberately narrow: a dotted suffix such as `localhost.evil.example` is not loopback. */
         internal val LOOPBACK_HOSTS = setOf("127.0.0.1", "localhost", "::1", "[::1]")
     }
 }

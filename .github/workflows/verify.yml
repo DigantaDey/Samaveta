@@ -5,17 +5,32 @@ name: Verify
 # What this proves, and what it does not:
 #   * `core` domain logic is executed (unit tests) and must be green.
 #   * The Android app compiles, passes lint, and its unit tests pass.
-#   * A debug APK is produced and kept as an artifact, so a real installation is always possible.
+#   * A debug APK is produced, and — on a version tag or a manual release run — a signed release APK
+#     is produced, integrity-guarded and attached to a GitHub Release.
 #   * NOT proven here: behaviour on a physical device (thermal, battery, background execution,
 #     GPU/NPU claims). Those require the device matrix in docs/TEST_REPORT.md and are never
 #     asserted by CI.
+#
+# Failure reporting: Gradle output is verbose and the interesting line is usually in the middle, so
+# every job mirrors its failures into check-run annotations (`##[error::…]`). A failing run can be
+# understood from the Checks tab without downloading a log.
+#
+# JDK note: the build targets Java 17 bytecode, but Gradle 8.9 cannot run *on* a JDK newer than 21.
+# JDK 21 is used here for that reason, and `jvmToolchain(17)` in the module build scripts is what
+# keeps the produced bytecode at 17.
 
 on:
   push:
     branches: [main, 'arena/**']
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Build and publish a signed release APK (requires the signing secrets)'
+        type: boolean
+        default: false
 
 concurrency:
   group: verify-${{ github.ref }}
@@ -24,6 +39,13 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  GRADLE_OPTS: >-
+    -Dorg.gradle.jvmargs=-Xmx4g
+    -Dorg.gradle.daemon=false
+    -Dkotlin.daemon.jvmargs=-Xmx2g
+    -Dfile.encoding=UTF-8
+
 jobs:
   domain-tests:
     name: Domain logic (JVM)
@@ -31,25 +53,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Set up JDK 21 (bytecode target stays 17)
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Check the wrapper is complete and executable
+        run: |
+          set -euo pipefail
+          # A missing or non-executable wrapper is the difference between a useful CI run and
+          # `exit code 127`. Check it explicitly so the failure names the real cause.
+          test -x ./gradlew || { echo "::error::./gradlew is missing or not executable"; exit 1; }
+          test -f gradle/wrapper/gradle-wrapper.jar || {
+            echo "::error::gradle/wrapper/gradle-wrapper.jar is missing"; exit 1; }
+          ./gradlew --version
+
       # The core module is pure Kotlin, so its logic is tested without the Android toolchain.
       - name: Run core unit tests
-        run: ./gradlew :core:test --stacktrace
+        run: ./gradlew :core:test --stacktrace --console=plain 2>&1 | tee core-test.log
+
+      - name: Summarise failures as annotations
+        if: failure()
+        run: |
+          grep -E "^(e: |.*FAILED|.*error: |Caused by: |> Task .* FAILED)" core-test.log \
+            | head -n 40 | while IFS= read -r line; do echo "::error::$line"; done
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: core-test-report
-          path: core/build/reports/tests/
+          path: |
+            core/build/reports/tests/
+            core/build/test-results/
           retention-days: 14
 
   android:
@@ -58,40 +98,72 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Set up JDK 21 (bytecode target stays 17)
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+          java-version: '21'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Accept SDK licenses
-        run: yes | sdkmanager --licenses || true
-
       - name: Install required SDK platform
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Static checks that need no Android SDK. They catch Hilt binding and resource-reference
+      # errors before Gradle spends minutes discovering them.
+      - name: Android pre-flight (resources, Hilt bindings, manifest classes)
+        run: python3 tools/check/android-preflight.py
+
+      - name: Compile the Android app
+        run: ./gradlew :app:compileDebugKotlin --stacktrace --console=plain 2>&1 | tee compile.log
+
+      - name: Summarise compile failures as annotations
+        if: failure()
+        run: |
+          grep -E "^(e: |.*error: |.*FAILED|Caused by: )" compile.log | head -n 60 \
+            | while IFS= read -r line; do echo "::error::$line"; done
 
       # Lint runs with warningsAsErrors, so this step fails on new lint debt rather than
       # accumulating it silently.
       - name: Lint
-        run: ./gradlew :app:lintDebug --stacktrace
+        run: ./gradlew :app:lintDebug --stacktrace --console=plain 2>&1 | tee lint.log
+
+      - name: Summarise lint failures as annotations
+        if: failure()
+        run: |
+          grep -E "^\S+\.(kt|xml):[0-9]+: (Error|Warning)" lint.log | head -n 60 \
+            | while IFS= read -r line; do echo "::error::$line"; done
+          grep -E "^> Task .* FAILED|^\* What went wrong" -A3 lint.log | head -n 40 \
+            | while IFS= read -r line; do echo "::error::$line"; done
 
       - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest :core:test --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --stacktrace --console=plain 2>&1 | tee unit.log
+
+      - name: Summarise unit-test failures as annotations
+        if: failure()
+        run: |
+          grep -E "FAILED|AssertionError|Exception" unit.log | head -n 60 \
+            | while IFS= read -r line; do echo "::error::$line"; done
 
       - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: ./gradlew :app:assembleDebug --stacktrace --console=plain 2>&1 | tee assemble.log
+
+      - name: Summarise assemble failures as annotations
+        if: failure()
+        run: |
+          grep -E "^(e: |.*error: |.*FAILED|Caused by: )" assemble.log | head -n 60 \
+            | while IFS= read -r line; do echo "::error::$line"; done
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: samaveta-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
           retention-days: 14
 
       - name: Upload reports
@@ -102,6 +174,12 @@ jobs:
           path: |
             app/build/reports/
             app/build/outputs/lint-results-debug.html
+            app/build/outputs/lint-results-debug.txt
+            compile.log
+            lint.log
+            unit.log
+            assemble.log
+          if-no-files-found: warn
           retention-days: 14
 
   release-guards:
@@ -139,6 +217,9 @@ jobs:
       - name: Repository hygiene checks
         run: python3 tools/check/repo-hygiene.py
 
+      - name: Android pre-flight
+        run: python3 tools/check/android-preflight.py
+
       - name: No mock LAYA wired into a release build
         run: |
           set -euo pipefail
@@ -146,3 +227,123 @@ jobs:
             echo "::error::MockLayaTransport must never be referenced from app/src/main."
             exit 1
           fi
+
+  # ---------------------------------------------------------------------------------------------
+  # Release: only on a version tag, or a manual run that asks for it.
+  #
+  # Signing material is supplied out-of-band as repository secrets and never enters the repository:
+  #   SAMAVETA_KEYSTORE_BASE64   base64 of the .jks
+  #   SAMAVETA_KEYSTORE_PASSWORD, SAMAVETA_KEY_ALIAS, SAMAVETA_KEY_PASSWORD
+  # Without them the release job stops with a clear message: an unsigned APK is not a release, and
+  # pretending otherwise would be exactly the kind of claim this project refuses to make.
+  # ---------------------------------------------------------------------------------------------
+  release:
+    name: Signed release APK
+    runs-on: ubuntu-latest
+    needs: [domain-tests, android, release-guards]
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release == true
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (bytecode target stays 17)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required SDK platform
+        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode the signing keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SAMAVETA_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::error::SAMAVETA_KEYSTORE_BASE64 is not configured. Add the signing secrets" \
+                 "described in README.md#release-signing, or run the debug build instead."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/signing"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/signing/samaveta.jks"
+          chmod 600 "$RUNNER_TEMP/signing/samaveta.jks"
+          echo "path=$RUNNER_TEMP/signing/samaveta.jks" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble the release APK
+        env:
+          SAMAVETA_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          SAMAVETA_KEYSTORE_PASSWORD: ${{ secrets.SAMAVETA_KEYSTORE_PASSWORD }}
+          SAMAVETA_KEY_ALIAS: ${{ secrets.SAMAVETA_KEY_ALIAS }}
+          SAMAVETA_KEY_PASSWORD: ${{ secrets.SAMAVETA_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease --stacktrace --console=plain 2>&1 | tee release.log
+
+      - name: Summarise release-build failures as annotations
+        if: failure()
+        run: |
+          grep -E "^(e: |.*error: |.*FAILED|Caused by: )" release.log | head -n 60 \
+            | while IFS= read -r line; do echo "::error::$line"; done
+
+      - name: Verify the APK is actually signed
+        run: |
+          set -euo pipefail
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          echo "APK: $APK ($(stat -c%s "$APK") bytes)"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/apksigner" verify --verbose "$APK" | tee signing.txt
+          if ! grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" signing.txt; then
+            echo "::error::The release APK is not signed with the v2 scheme."
+            exit 1
+          fi
+
+      - name: Guard the APK's own claims
+        run: |
+          set -euo pipefail
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          python3 tools/check/release-apk-guards.py "$APK" "$ANDROID_HOME/build-tools/35.0.0/aapt2"
+
+      - name: Name the artifact after the commit
+        id: name
+        run: |
+          set -euo pipefail
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          SHORT=${GITHUB_SHA::7}
+          OUT="samaveta-${GITHUB_REF_NAME}-${SHORT}.apk"
+          cp "$APK" "$OUT"
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: samaveta-release-apk
+          path: ${{ steps.name.outputs.file }}
+          if-no-files-found: error
+          retention-days: 90
+
+      # A tag publishes a Release; a manual run keeps the APK as a workflow artifact only, so a
+      # download link never implies a versioned release that nobody tagged.
+      - name: Publish the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.name.outputs.file }}
+          name: SAMAVETA ${{ github.ref_name }}
+          body: |
+            Signed release build of SAMAVETA, produced by CI from tag `${{ github.ref_name }}`.
+
+            **What this build does:** asks the LAYA decision engine what an utterance is, applies
+            SAMAVETA's own deterministic policy to the answer, and reports honestly what happened.
+            **What it does not do:** execute device actions (no capability executor exists yet),
+            run models on-device (nothing is downloadable), or claim anything is verified on
+            hardware. See `KNOWN_LIMITATIONS.md` in the repository.
+
+            Signing certificate fingerprint and the commit it was built from are in the workflow run.
+          generate_release_notes: true
