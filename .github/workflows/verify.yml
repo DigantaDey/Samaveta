@@ -162,14 +162,18 @@ jobs:
           # `lintDebug` prints at most a one-line summary on stdout, so the findings are read from
           # the text report it writes. Without this the run says "35 errors" and names one of them.
           set -euo pipefail
-          REPORT=app/build/outputs/lint-results-debug.txt
-          if [ -f "$REPORT" ]; then
-            echo "--- lint findings by issue id"
-            grep -oE '\[[A-Za-z]+\]$' "$REPORT" | sort | uniq -c | sort -rn || true
-            echo "--- lint report (first 120 lines)"
-            head -n 120 "$REPORT" | while IFS= read -r line; do echo "::error::$line"; done
+          # AGP writes the text report under reports/ for a failing run and outputs/ for a passing
+          # one; search instead of assuming, so the step cannot itself become a false negative.
+          REPORT=$(find app/build -name 'lint-results-debug.txt' -o -name 'lint-results*.txt' 2>/dev/null | head -n 1 || true)
+          if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
+            echo "--- $REPORT"
+            echo "--- findings by issue id"
+            grep -oE '\[[A-Za-z]+\]' "$REPORT" | sort | uniq -c | sort -rn || true
+            echo "--- report (first 150 lines)"
+            head -n 150 "$REPORT" | while IFS= read -r line; do echo "::error::$line"; done
           else
-            echo "::error::$REPORT was not produced; lint did not reach the reporting stage"
+            echo "::error::no lint-results-debug.txt under app/build; listing what exists:"
+            find app/build -name 'lint*' -maxdepth 4 2>/dev/null | head -20 | while IFS= read -r l; do echo "::error::$l"; done
           fi
           grep -E "^> Task .* FAILED|^\* What went wrong" -A3 lint.log | head -n 40 \
             | while IFS= read -r line; do echo "::error::$line"; done
