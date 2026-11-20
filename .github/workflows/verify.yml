@@ -1,0 +1,145 @@
+name: Verify
+
+# SAMAVETA CI.
+#
+# What this proves, and what it does not:
+#   * `core` domain logic is executed (unit tests) and must be green.
+#   * The Android app compiles, passes lint, and its unit tests pass.
+#   * A debug APK is produced and kept as an artifact, so a real installation is always possible.
+#   * NOT proven here: behaviour on a physical device (thermal, battery, background execution,
+#     GPU/NPU claims). Those require the device matrix in docs/TEST_REPORT.md and are never
+#     asserted by CI.
+
+on:
+  push:
+    branches: [main, 'arena/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  domain-tests:
+    name: Domain logic (JVM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The core module is pure Kotlin, so its logic is tested without the Android toolchain.
+      - name: Run core unit tests
+        run: ./gradlew :core:test --stacktrace
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-report
+          path: core/build/reports/tests/
+          retention-days: 14
+
+  android:
+    name: Android build, lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept SDK licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Install required SDK platform
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      # Lint runs with warningsAsErrors, so this step fails on new lint debt rather than
+      # accumulating it silently.
+      - name: Lint
+        run: ./gradlew :app:lintDebug --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest :core:test --stacktrace
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: samaveta-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: |
+            app/build/reports/
+            app/build/outputs/lint-results-debug.html
+          retention-days: 14
+
+  release-guards:
+    name: Release blockers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Cheap, deterministic checks that encode the product's non-negotiables. These run before a
+      # release and fail loudly rather than being verified by hand.
+      - name: No committed secrets or keystores
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -Ei '\.(jks|keystore)$|keystore\.properties$'; then
+            echo "::error::A keystore or signing property file is committed."
+            exit 1
+          fi
+
+      - name: No model weights in the repository
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -Ei '\.(tflite|task|litertlm|gguf|onnx|bin|safetensors)$'; then
+            echo "::error::Model weights must be downloaded, never committed."
+            exit 1
+          fi
+
+      - name: Core must stay free of Android imports
+        run: |
+          set -euo pipefail
+          if grep -rnE '^import (android|androidx)\.' core/src/main; then
+            echo "::error::core must remain pure Kotlin so it is testable without the Android SDK."
+            exit 1
+          fi
+
+      - name: No mock LAYA wired into a release build
+        run: |
+          set -euo pipefail
+          if grep -rn 'MockLayaTransport(' app/src/main; then
+            echo "::error::MockLayaTransport must never be referenced from app/src/main."
+            exit 1
+          fi

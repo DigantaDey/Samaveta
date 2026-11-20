@@ -79,6 +79,11 @@ object AppModule {
 
     @Provides
     @Singleton
+    @Named("buildIsRelease")
+    fun provideBuildIsRelease(): Boolean = !com.samaveta.android.BuildConfig.DEBUG
+
+    @Provides
+    @Singleton
     fun provideDeviceProfileProvider(
         @ApplicationContext context: Context,
     ): AndroidDeviceProfileProvider = AndroidDeviceProfileProvider(context)

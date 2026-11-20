@@ -43,9 +43,10 @@ class SamavetaApplication : Application(), Configuration.Provider {
  * Surfaces the state of integrations the user can check at any time. In particular the LAYA status
  * must be visible and must never read as "connected" while the adapter is unconfigured or mocked.
  */
-class StartupDiagnostics(
-    private val layaState: LayaIntegrationState,
-    private val buildIsRelease: Boolean,
+@javax.inject.Singleton
+class StartupDiagnostics @javax.inject.Inject constructor(
+    @javax.inject.Named("layaState") private val layaState: LayaIntegrationState,
+    @javax.inject.Named("buildIsRelease") private val buildIsRelease: Boolean,
 ) {
     enum class Severity { INFO, WARNING, ERROR }
 

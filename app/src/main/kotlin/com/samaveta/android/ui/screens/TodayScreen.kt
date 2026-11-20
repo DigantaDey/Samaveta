@@ -306,7 +306,7 @@ class TodayViewModel @Inject constructor(
     private val device: DeviceProfile,
     private val capabilities: DeviceCapabilities,
     @Named("layaState") private val layaState: LayaIntegrationState,
-    private val clock: () -> Long,
+    @Named("clock") private val clock: () -> Long,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(TodayUiState(greeting = greetingFor(clock())))

@@ -293,7 +293,7 @@ data class AgentUiState(
 @HiltViewModel
 class AgentViewModel @Inject constructor(
     @Named("layaState") layaState: LayaIntegrationState,
-    private val clock: () -> Long,
+    @Named("clock") private val clock: () -> Long,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AgentUiState(layaState = layaState))
