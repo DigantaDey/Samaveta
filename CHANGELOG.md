@@ -7,7 +7,7 @@ after a musical instrument.
 
 ### Added
 
-**Domain core (`:core`, pure Kotlin, 302 unit tests) and app pure logic (55 tests)**
+**Domain core (`:core`, pure Kotlin, 359 unit tests) and app pure logic (55 tests)**
 - `json` — dependency-free JSON parser/writer that rejects duplicate keys, control characters,
   trailing content and malformed numbers, and reports precise error positions. Integers keep their
   literal so 64-bit values survive parsing.
@@ -83,6 +83,13 @@ after a musical instrument.
   integration, model catalog and licensing registry, privacy, design system, test report, known
   limitations, development environment.
 
+### Changed
+- **LAYA integration reconciled against the real repository.** LAYA is a non-autoregressive typed
+  decision engine (`choice` / `score` / `noul` over one state), not a planner; the previously
+  PROPOSED plan contract is marked SUPERSEDED and wired to nothing. `core/.../laya/v1` now implements
+  the published contract with strict decoding, a narrow retry policy, and a deterministic answer
+  policy that honours abstention and truncation.
+
 ### Fixed
 - A later positive feedback signal silently un-muted a topic the user had muted.
 - Deduplication merged distinct stories that differed only by a number ("Android 16" → "Android 17").
@@ -98,6 +105,8 @@ after a musical instrument.
   confirmation-gated action was unreachable. Approvals now go through `ActionPipeline.approve()`.
 - The feed fetcher's redirect branch swallowed HTTP 304, turning every cheap conditional refresh
   into a reported failure. 304 is now checked first.
+- A nullable `lang` field silently disappeared from every LAYA request: `"lang" to nullableValue`
+  inside the JSON builder creates a discarded `Pair` rather than a field. Now null-checked.
 
 ### Known gaps
 See `KNOWN_LIMITATIONS.md`. In short: no Android build yet, no model runtime, LAYA not connected, no

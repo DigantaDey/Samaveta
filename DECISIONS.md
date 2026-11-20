@@ -80,3 +80,28 @@ unchanged under the real Gradle build.
 **Decision.** Memory, Models, Voice Lab, Browser, Automation and Settings live behind "More".
 **Why.** At 360 dp, six or more bar items become illegible and untappable. Today/Agent/Intelligence/
 Activity are the surfaces used daily.
+
+## D-011 — LAYA is a typed decision engine, so SAMAVETA does the planning
+
+**Decision.** Reconciling against LAYA's published repository (2026-11-20) showed it returns typed
+answers (`choice` / `score` / `noul`) about one state in a single forward pass, with abstention and
+calibration — and no plans, steps or tool calls. `core/.../laya/v1` implements that real contract and
+`LayaQuestions` asks four fixed questions. The earlier PROPOSED planner contract is marked
+**SUPERSEDED**, kept only for its validation tests, and wired to nothing. Planning and execution stay
+inside SAMAVETA (`PlanGate`, `PlanRunner`, `ActionPipeline`).
+
+**Why.** The directive forbids inventing LAYA's interface or building a competitor. Carrying a
+planner-shaped fiction as "the LAYA interface" would have been both: a fabricated SDK, and a plan
+engine that happens to live in our codebase. Asking a small fixed question set and applying our own
+deterministic policy keeps the boundary honest — LAYA decides *what it is*, SAMAVETA decides *what it
+may do* and *whether it happened*.
+
+**Consequences.**
+- The agent narrative degrades gracefully: no LAYA ⇒ every request reads `Unsure`/`NotACommand` with a
+  real reason, never a fabricated action.
+- A model answering "no confirmation needed" cannot remove confirmation for a state-changing
+  capability; the capability registry wins.
+- `LAYA_INTEGRATION.md` §1.1 records the correction publicly, including why the earlier contract was
+  wrong.
+- LAYA over HTTP cannot satisfy "offline agent on a phone" today; `laya-java` lists Android as not
+  implemented. This is recorded as BLOCKED rather than substituted with a local lookalike.

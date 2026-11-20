@@ -8,7 +8,11 @@ stakeholder as working.
 1. **The Android app has never been compiled.** No Android SDK was available in the development
    environment. Compose code may contain compile errors; CI is the first real build.
 2. **No model runtime is integrated.** There is no inference of any kind. `Models` is empty.
-3. **LAYA is not connected.** No production contract has been supplied. Planning, model routing and
+3. **LAYA is not connected, and cannot be offline on a phone.** Its real contract is reconciled — it is
+   a typed decision engine, not a planner — and the client is tested against its documented payloads,
+   but no live server has been contacted. LAYA's own Java SDK lists Android as not implemented, and the
+   only shipped deployment is an HTTP server, so an agent narrative driven by LAYA needs a network
+   connection. Planning, model routing and
    autonomous execution are unavailable; the app says so in Today, Agent and Settings.
 4. **No device verification.** Every performance, thermal, battery and accelerator claim is
    unproven. GPU/NPU are reported `UNKNOWN`.

@@ -10,7 +10,7 @@
 
 | Area | Executed? | Result |
 |---|---|---|
-| `core` unit tests | **Yes** — real JVM | 315/315 pass |
+| `core` unit tests | **Yes** — real JVM | 359/359 pass |
 | App pure-logic unit tests | **Yes** — real JVM | 55/55 pass |
 | Android UI compilation | No — no Android SDK in this environment | Deferred to CI |
 | Lint / static analysis | No | Deferred to CI |
@@ -24,7 +24,7 @@ $ ./tools/jvm-verify/verify.sh
 == compiling core tests
 == compiling app pure logic (Android-free sources only)
 == running tests
-Tests run: 370, Passed: 370, Failed: 0, Skipped: 0
+Tests run: 414, Passed: 414, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -165,6 +165,42 @@ and surfaced in diagnostics.
 **A test caught a real defect:** `ConfirmationBroker.grant()` deleted the pending request that
 `consume()` used to check expiry, so a granted confirmation never expired. Expiry now lives on the
 `ConfirmationGrant` itself and is covered by `expiredConfirmationIsRefusedEvenAfterItWasGranted`.
+
+### 3.6c2 LAYA v1 (real contract)
+
+Reconciled against `github.com/NandhaKishorM/laya` — `docs/http-api.md`,
+`sdk/typescript/src/types.ts`, `sdk/typescript/src/validation.ts`, `sdk/python/tests/_support.py`.
+
+| Case | Result |
+|---|---|
+| Predict request encodes state, questions, optional controls | PASS |
+| Absent optional fields omitted (never sent as `null`) | PASS |
+| `min_confidence` bucket keys validated against LAYA's own grammar | PASS |
+| LAYA's documented sample response decodes fully | PASS |
+| `noul` answer with no confidence accepted; missing `routing` accepted | PASS |
+| Absent `abstention` means *no gate ran*, never "passed" | PASS |
+| Batch responses decode per result | PASS |
+| `/health` decodes both open and `LAYA_API_KEY`-restricted payloads | PASS |
+| Unknown answer type rejected | PASS |
+| Choice label outside its own probabilities rejected | PASS |
+| Out-of-range, negative and non-numeric probabilities rejected | PASS |
+| Unknown abstention state rejected | PASS |
+| Score without legend rejected; non-object payload rejected | PASS |
+| Error bodies decoded from both `detail` and `error` shapes | PASS |
+| 422 never retried; 503 retried exactly once | PASS |
+| Connection failure leaves the client visibly degraded | PASS |
+| Plaintext remote endpoint refused; loopback allowed | PASS |
+| Truncated request refused before any other consideration | PASS |
+| Abstained / unevaluated answers never acted on | PASS |
+| Low-confidence intent or capability asks instead of guessing | PASS |
+| Capability SAMAVETA does not have is unusable, not ignored | PASS |
+| A model answering "no confirmation needed" cannot remove confirmation | PASS |
+| Capability question criteria generated from the real registry | PASS |
+
+**Two real defects found during this work.** (1) The PROPOSED planner contract was not LAYA's
+interface at all — reconciling it against the repository was the only way to find this; it is now
+marked SUPERSEDED. (2) A nullable `lang` value silently vanished from the encoded request because
+`"key" to nullableValue` builds a `Pair<Any?, Any?>` inside the JSON builder and is then discarded.
 
 ### 3.6d Intelligence ingestion
 

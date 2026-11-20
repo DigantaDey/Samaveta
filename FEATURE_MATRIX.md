@@ -13,11 +13,12 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | FND-04 | Branding incl. correct Devanagari समवेत | IMPLEMENTED | `res/values/strings.xml` | Rendering unverified on device |
 | FND-05 | SANTOOR release mark (vector) | IMPLEMENTED | `res/drawable/ic_santoor.xml` | — |
 | FND-06 | Dependency injection, navigation, CI | IMPLEMENTED | `di/`, `ui/SamavetaRoot.kt`, `.github/workflows` | CI unrun (Actions permission unavailable) |
-| LAYA-01 | Documented integration contract | TESTED | `core/.../laya/LayaContract.kt` | `LayaContractTest` (13) |
-| LAYA-02 | Adapter: timeout, retry, cancellation, errors | TESTED | `LayaAdapter.kt` | `LayaContractTest` |
-| LAYA-03 | Strict response decoding (no guessing) | TESTED | `LayaWireContract.decodeResponse` | unknown version/step/id-mismatch rejected |
-| LAYA-04 | Deterministic decision validation | TESTED | `LayaDecisionValidator.kt` | `LayaDecisionValidatorTest` (16) |
-| LAYA-05 | Real production integration | **BLOCKED** | — | No contract supplied by LAYA's developer |
+| LAYA-01 | Real published contract, reconciled | TESTED | `core/.../laya/v1/LayaV1Contract.kt` | `LayaV1Test`; source cited in file header |
+| LAYA-02 | Client: timeout, bounded retry, admission, error taxonomy | TESTED | `LayaV1Client.kt` | 422 never retried; 503 retried once; state only CONNECTED after a real call |
+| LAYA-03 | Strict response decoding (reject whole, never partially trust) | TESTED | `LayaV1Codec.kt` | 10 rejection cases |
+| LAYA-04 | Deterministic answer policy (abstention, truncation, floors) | TESTED | `LayaQuestions.kt` | model cannot remove mandatory confirmation |
+| LAYA-05 | Connection to a live `laya-serve` | **BLOCKED** | — | No server deployed here; LAYA's Java SDK has no Android support yet |
+| LAYA-06 | PROPOSED planner contract | SUPERSEDED | `core/.../laya/LayaContract.kt` | Not LAYA's interface; wired to nothing |
 | MOD-01 | Model Registry with full metadata | TESTED | `model/ModelDescriptor.kt`, `ModelAdmission.kt` | invariant tests |
 | MOD-02 | Admission: RAM/storage/accelerator/ABI/integrity | TESTED | `ModelRegistry.evaluate` | incl. 3GB device refusal |
 | MOD-03 | Secure download with SHA-256 gate | TESTED | `app/.../ModelDownloader.kt` | `ModelDownloaderTest` (11) |
@@ -55,7 +56,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | SEC-05 | No false success | TESTED | `ActionVerifier` | type-enforced |
 | SEC-06 | Encrypted storage via Keystore | NOT_STARTED | — | dependency declared only |
 | CAP-01 | Notification/messaging/calendar/files capabilities | NOT_STARTED | — | authorization layer ready |
-| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 370/370 |
+| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 414/414 |
 | QLT-02 | Lint + static analysis in CI | IMPLEMENTED | CI `lintDebug` | unrun here |
 | QLT-03 | Instrumentation / UI tests | NOT_STARTED | — | — |
 | QLT-04 | Physical-device verification | NOT_STARTED | — | **blocks any VERIFIED status** |
