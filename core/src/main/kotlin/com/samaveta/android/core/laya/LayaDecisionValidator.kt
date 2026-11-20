@@ -22,9 +22,20 @@ class LayaDecisionValidator(
     private val capabilities: DeviceCapabilities,
     private val capabilityInventory: Set<String>,
     private val maxSteps: Int = 8,
+    /**
+     * Capabilities the user may be asked to approve, in addition to [capabilityInventory].
+     * Without this, a plan's `requestedCapabilities` would always fail: those are the capabilities
+     * the plan *wants*, which by definition the user has not granted yet — they are granted through
+     * the confirmation flow, not before validation.
+     */
+    private val grantableCapabilities: Set<String> = emptySet(),
+    private val confirmations: Set<String> = emptySet(),
 ) {
     init {
         require(maxSteps in 1..32) { "maxSteps out of range" }
+        require(confirmations.all { it in capabilityInventory || it in grantableCapabilities }) {
+            "a confirmed capability must be a capability SAMAVETA can actually perform"
+        }
     }
 
     fun validate(plan: LayaPlan): PlanVerdict {
@@ -90,27 +101,37 @@ class LayaDecisionValidator(
         }
 
         for (capability in plan.requestedCapabilities) {
-            if (capability !in capabilityInventory) {
+            val performable = capability in capabilityInventory || capability in grantableCapabilities
+            if (!performable) {
                 issues += PlanIssue(
                     steps = plan.steps.map { it.index }.take(1),
                     code = IssueCode.CAPABILITY_UNAVAILABLE,
-                    detail = "Plan requests unauthorized or unavailable capability '$capability'.",
+                    detail = "Plan requests a capability this device cannot perform: '$capability'.",
                 )
             }
         }
 
         // A plan that performs an outward-facing or irreversible action must be user-confirmed
-        // regardless of what LAYA says.
+        // regardless of what LAYA says — unless the user already confirmed exactly this capability.
         val sideEffect = plan.performsSideEffect()
+        val requestedAwaitingApproval = plan.requestedCapabilities.filter { capability ->
+            (capability in SENSITIVE_CAPABILITIES || capability in grantableCapabilities) &&
+                capability !in confirmations
+        }
         val needsConfirmation = sideEffect.requiresConfirmation ||
             plan.requiresUserConfirmation ||
-            plan.requestedCapabilities.any { it in SENSITIVE_CAPABILITIES }
+            requestedAwaitingApproval.isNotEmpty()
 
         return if (issues.isEmpty()) {
             PlanVerdict.Acceptable(
                 plan = plan,
                 requiresUserConfirmation = needsConfirmation,
-                confirmationReason = if (needsConfirmation) sideEffect.reason ?: "The plan requests sensitive capabilities." else null,
+                confirmationReason = if (needsConfirmation) {
+                    sideEffect.reason
+                        ?: "The plan requires approval for: ${requestedAwaitingApproval.joinToString()}."
+                } else {
+                    null
+                },
             )
         } else {
             PlanVerdict.Rejected(plan.requestId, issues)

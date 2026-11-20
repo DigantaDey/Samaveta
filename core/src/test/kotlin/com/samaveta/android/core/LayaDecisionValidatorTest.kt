@@ -28,7 +28,16 @@ class LayaDecisionValidatorTest {
     private fun validator(
         registry: ModelRegistry,
         capabilities: Set<String> = setOf("notifications.read", "calendar.read"),
-    ) = LayaDecisionValidator(registry, device, caps, capabilities)
+        grantable: Set<String> = emptySet(),
+        confirmations: Set<String> = emptySet(),
+    ) = LayaDecisionValidator(
+        registry = registry,
+        device = device,
+        capabilities = caps,
+        capabilityInventory = capabilities,
+        grantableCapabilities = grantable,
+        confirmations = confirmations,
+    )
 
     private fun plan(vararg steps: LayaPlanStep, requested: Set<String> = emptySet(), confirm: Boolean = false) =
         LayaPlan(
@@ -87,6 +96,47 @@ class LayaDecisionValidatorTest {
         assertTrue(issues[0].detail.contains("not verified"))
     }
 
+    /**
+     * The distinction the validator must make: a capability the user has not yet approved is
+     * *pending approval*, not *unauthorized*. Treating the former as the latter would deadlock
+     * every first task a user ever asks for.
+     */
+    @Test
+    fun requestedCapabilityAwaitingApprovalIsAllowedWithConfirmation() {
+        val reg = registry(TestFixtures.installedEntry(TestFixtures.smallTextModel()))
+        val verdict = validator(reg, grantable = setOf("messaging.send")).validate(
+            plan(inference(0, "test-llama-1b"), requested = setOf("messaging.send")),
+        )
+        assertTrue("a pending grant must not be treated as unauthorized", verdict is PlanVerdict.Acceptable)
+        val acceptable = verdict as PlanVerdict.Acceptable
+        assertTrue(acceptable.requiresUserConfirmation)
+        assertTrue(acceptable.confirmationReason!!.contains("messaging.send"))
+    }
+
+    @Test
+    fun requestedCapabilityAlreadyApprovedNeedsNoSecondConfirmation() {
+        val reg = registry(TestFixtures.installedEntry(TestFixtures.smallTextModel()))
+        val verdict = validator(
+            reg,
+            capabilities = setOf("messaging.send"),
+            confirmations = setOf("messaging.send"),
+        ).validate(plan(inference(0, "test-llama-1b"), requested = setOf("messaging.send")))
+        assertTrue(verdict is PlanVerdict.Acceptable)
+        assertFalse(
+            "an approved capability must not be re-prompted on every turn",
+            (verdict as PlanVerdict.Acceptable).requiresUserConfirmation,
+        )
+    }
+
+    @Test
+    fun capabilityTheDeviceCannotPerformIsStillRejected() {
+        val reg = registry(TestFixtures.installedEntry(TestFixtures.smallTextModel()))
+        val verdict = validator(reg, grantable = setOf("messaging.send")).validate(
+            plan(inference(0, "test-llama-1b"), requested = setOf("teleport.user")),
+        )
+        assertTrue(verdict is PlanVerdict.Rejected)
+    }
+
     @Test
     fun rejectsUnauthorizedCapabilityInvocation() {
         val reg = registry(TestFixtures.installedEntry(TestFixtures.smallTextModel()))
@@ -109,7 +159,7 @@ class LayaDecisionValidatorTest {
         val verdict = validator(reg).validate(
             plan(inference(0, "test-llama-1b"), requested = setOf("sms.send")),
         )
-        assertTrue(verdict is PlanVerdict.Rejected)
+        assertTrue("a capability the device cannot perform at all must be rejected", verdict is PlanVerdict.Rejected)
     }
 
     @Test
