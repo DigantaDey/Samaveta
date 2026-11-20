@@ -2,7 +2,8 @@
 
 **Report date:** 2026-11-20
 **Build revision:** see `git log -1` at time of reading
-**Verdict:** domain logic **PASS**; Android layer **NOT COMPILED**; device verification **NOT PERFORMED**
+**Verdict:** domain logic **PASS**; Android layer **COMPILED, LINT-CLEAN and UNIT-TESTED in CI**;
+debug APK **BUILT**; device verification **NOT PERFORMED**
 
 ---
 
@@ -10,12 +11,18 @@
 
 | Area | Executed? | Result |
 |---|---|---|
-| `core` unit tests | **Yes** — real JVM | 408/408 pass |
-| App pure-logic unit tests | **Yes** — real JVM | 66/66 pass |
-| Android UI compilation | No — no Android SDK in this environment | Deferred to CI |
-| Lint / static analysis | No | Deferred to CI |
+| `core` unit tests | **Yes** — real JVM, locally and in CI | 408/408 pass |
+| App unit tests | **Yes** — real JVM, locally and in CI | 66/66 pass |
+| Android compilation (`:app:compileDebugKotlin`) | **Yes** — CI | pass |
+| Lint (`:app:lintDebug`, warnings as errors) | **Yes** — CI | pass, 0 findings |
+| Debug APK (`:app:assembleDebug`) | **Yes** — CI | built, 17.9 MB, `aapt2 dump badging` verified |
+| Signed release APK | Only when the four signing secrets are configured | **not produced** |
 | Instrumentation tests | No | Not written yet |
 | Physical device | No | **Nothing is VERIFIED** |
+
+CI evidence is a green `Verify` run on this branch: 408 core tests, 66 app tests, 0 failures, 0 lint
+findings, and a `samaveta-debug-apk` artifact. The release job is intentionally skipped unless the
+signing secrets exist — an unsigned APK is not a release.
 
 ```
 $ ./tools/jvm-verify/verify.sh
@@ -30,11 +37,15 @@ VERDICT: PASS
 
 ## 2. Environment
 
-- Kotlin 2.4.21 (standalone compiler), OpenJDK 25 runtime, Linux x86-64.
-- No Android SDK, no Gradle distribution, no Maven Central access (see
-  `DEVELOPMENT_ENVIRONMENT.md`). Hence `tools/jvm-verify`, which compiles the pure-Kotlin modules
-  and runs JUnit-style tests through a source-compatible shim.
-- These are **not** substitutes for instrumentation or device tests and are not presented as such.
+- **Local harness:** Kotlin 2.4.21 (standalone compiler), OpenJDK 25 runtime, Linux x86-64, no
+  Android SDK and no Maven Central access (see `DEVELOPMENT_ENVIRONMENT.md`). `tools/jvm-verify`
+  compiles the pure-Kotlin modules and the Android-free app sources and runs the tests through a
+  source-compatible shim. Warnings are errors there too, matching `allWarningsAsErrors` in Gradle —
+  a harness that passes with `-nowarn` is not a check.
+- **CI:** JDK 21 (Gradle 8.9 cannot run on a newer JDK), Android SDK platform 35 / build-tools 35.0.0,
+  and the real Gradle build. This is where the Android module is compiled, linted, unit-tested and
+  assembled.
+- Neither is a substitute for instrumentation or device tests, and neither is presented as one.
 
 ## 3. Coverage by requirement
 

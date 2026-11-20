@@ -5,6 +5,39 @@ after a musical instrument.
 
 ## [Unreleased] — 1.0.0-SANTOOR (release candidate: not shippable)
 
+### Build and release engineering
+
+CI is green end to end: `:core:test` (408), `:app:compileDebugKotlin`, `:app:lintDebug` with
+warnings-as-errors (0 findings), `:app:testDebugUnitTest` (66), `:app:assembleDebug`, and an APK
+integrity check before upload. The debug APK is published as a `samaveta-debug-apk` workflow artifact.
+
+Defects found and fixed while getting there — each one a real bug, not a suppressed check:
+
+- **Hilt had no binding for `ModelDownloader`.** `ModelDownloadService` field-injects it and it was a
+  plain class with no `@Provides`. Added `ModelDownloadTransport` (HttpURLConnection, redirects
+  refused) and a provider that supplies the app-private model directory, so the downloader itself
+  stays Android- and DI-free.
+- **A false capability claim in `ModelDownloadService`'s documentation**: it said downloads are
+  resumable and resumed bytes are re-verified. They are not. Reworded to describe what the code does.
+- **`MaterialTheme.textTertiary`** does not exist — the semantic palette is `MaterialTheme.samaveta`.
+  A single typo that only a real compile could catch.
+- **A nullable member of a `by`-delegated Compose state was smart-cast** (`state.deviceNote`), which
+  Kotlin forbids. Read into a local first.
+- **Nine missing imports** (`Color`, `Dp`, `Shapes`, `ColumnScope`, `getValue`, `asStateFlow`,
+  `LayaV1Config`, `PreferencesRepository`) across the Compose layer.
+- **31 unused resources.** `samaveta_accent` and 30 strings — including every user-facing honesty
+  string — were referenced by nothing; the UI writes its copy as Compose literals. Deleted rather
+  than suppressed, because editing those strings changed nothing a user could see.
+- **`mipmap-anydpi-v26`** is obsolete at minSdk 28; renamed to `mipmap-anydpi`.
+- **Release signing was silently optional.** `signingConfigs.release` assigned nothing unless the
+  keystore path was set, so a release build could produce an `-unsigned.apk` and report success. The
+  assignments are now unconditional and the release tasks refuse to run without all four variables.
+- **CI infrastructure**: Gradle's configuration/build cache could report a task green while writing no
+  reports at all (now disabled in CI); `cmd | tee` without `set -o pipefail` returned `tee`'s status
+  and hid Gradle failures; the test-summary glob was not recursive; and the local harness compiled
+  with `-nowarn`, hiding three warnings that `allWarningsAsErrors` rejects. All four are fixed and
+  the harness now uses `-Werror`.
+
 ### Added
 
 **Domain core (`:core`, pure Kotlin, 408 unit tests) and app pure logic (66 tests)**

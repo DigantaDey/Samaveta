@@ -3,15 +3,19 @@
 **Product:** SAMAVETA (समवेत) — *Intelligence, United.*
 **First major release:** SAMAVETA 1.0 — **SANTOOR**
 **Last updated:** 2026-11-20
-**Build state:** `core` + app pure-logic **compile and pass 474/474 unit tests** (executed locally).
-Android UI layer: **written, not yet compiled** — see *Verification environment* below.
+**Build state:** CI is **green on all jobs**. The Android app **compiles, passes lint and passes its
+unit tests**, and a **debug APK is built and published as a CI artifact** (17.9 MB). The core and the
+app together execute **474/474 unit tests** — 408 in `core`, 66 in the app — both in CI and locally.
+The app has **not** been run on a physical device; see *what is not proven* below.
 
 ---
 
 ## 1. Honest summary
 
-This repository currently contains a **verified domain core** and a **written Android application
-layer**. It is not a shippable product yet, and this document does not pretend otherwise.
+This repository contains a **tested domain core** and an **Android application that compiles, lints
+clean and produces an installable debug APK**. It is not a finished product and this document does
+not pretend otherwise: no feature below is claimed `VERIFIED`, because `VERIFIED` requires evidence
+from real hardware and none exists yet.
 
 What is real and proven:
 
@@ -19,13 +23,18 @@ What is real and proven:
   device-health, model-admission, browser-policy and action-orchestration logic. Every one of
   those subsystems has executed unit tests
   (474 tests, all passing) run with a real JVM.
-- Android project scaffolding that configures the toolchain correctly (AGP 8.7.3 / Kotlin 2.0.21 /
-  Compose BOM 2024.12.01 / Hilt / Room / DataStore / WorkManager, minSdk 28, arm64-only).
+- An Android application that **builds in CI**: AGP 8.7.3 / Kotlin 2.0.21 / Compose BOM 2024.12.01 /
+  Hilt / Room / DataStore / WorkManager, minSdk 28, arm64-v8a. `:app:compileDebugKotlin`,
+  `:app:lintDebug` (warnings as errors) and `:app:testDebugUnitTest` all pass, and
+  `:app:assembleDebug` produces an APK that is integrity-checked with `aapt2 dump badging` before
+  upload.
 - A completed design system and brand identity, including the SANTOOR release mark.
 
 What is **not** real yet, and must not be described as working:
 
-- The Compose UI has never been compiled (no Android SDK in this environment) or run on a device.
+- The Compose UI has **never been run on a device or emulator**, and no instrumentation test exists.
+  Compiling and linting is not the same as rendering: layout on a real screen, touch targets, motion
+  and accessibility are all unobserved. CI proves it builds; it does not prove it looks right.
 - No model runtime is integrated. No model is downloadable. `Models` is empty by design.
 - No voice, vision/OCR or Android capability *integration* exists; the browser and capability
   policy layers are tested, but nothing is connected to a WebView, an SMS manager or a listener.
@@ -41,7 +50,10 @@ What is **not** real yet, and must not be described as working:
   randomly-initialised model — it proves the wire contract, the decoding and the refusal path, and it
   proves **nothing** about model quality or calibration. Real LAYA weights could not be downloaded
   here. LAYA is also a typed decision engine, not a planner: SAMAVETA does its own planning.
-- No APK has been produced or installed.
+- A **signed release** APK requires four repository secrets that are not configured here
+  (`SAMAVETA_KEYSTORE_BASE64`, `SAMAVETA_KEYSTORE_PASSWORD`, `SAMAVETA_KEY_ALIAS`,
+  `SAMAVETA_KEY_PASSWORD`). The release job refuses to emit an unsigned APK rather than calling one
+  a release. Only the **debug** APK exists today, as a workflow artifact.
 
 ## 2. Verification environment (why some claims are absent)
 
@@ -53,16 +65,17 @@ To avoid simply *asserting* that code works, the project carries its own verific
 (`tools/jvm-verify/`) which compiles the modules with a standalone Kotlin compiler and executes the
 JUnit-style tests. That is the source of the 474/474 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
 
-**Consequence:** the Android layer's correctness is *reviewed*, not *executed*, in this environment.
-CI (`.github/workflows/verify.yml`) is the mechanism that closes that gap — it builds, lints and
-unit-tests the Android module and produces a debug APK.
+**Consequence:** the Android layer cannot be *executed* in this workspace. CI is the mechanism that closes that gap, and as of this build it
+does so: every push compiles the app, runs `lintDebug` with warnings-as-errors, runs the 66 app unit
+tests, assembles the debug APK, and asserts the APK exists and declares a well-formed package before
+uploading it. A green run is the evidence behind every build claim in this document.
 
 ## 3. Phase status
 
 | Phase | Scope | Status | Evidence |
 |---|---|---|---|
 | 0 | Repository + feasibility audit | **VERIFIED** | `docs/DECISIONS.md` D-001…D-003 |
-| 1 | Native foundation (structure, design system, theme, DI, CI) | **IMPLEMENTED** (UI not compiled) | `app/src/main/kotlin/.../ui/design`, CI workflow |
+| 1 | Native foundation (structure, design system, theme, DI, CI) | **IMPLEMENTED** — app compiles, lints clean, 66 app unit tests pass, debug APK built in CI | `app/src/main/kotlin/.../ui/design`, `.github/workflows/verify.yml` |
 | 2 | LAYA integration | **TESTED against a real `laya-serve` on its offline fixture checkpoint**, plus a real transport and agent turn; quality on real weights unproven | `LayaV1Test` (44), `LayaLiveContractTest` (15), `LayaTransportTest` (12), `LayaAgentTest` (13); `LAYA_INTEGRATION.md` |
 | 3 | Model infrastructure | **PARTIAL**: registry, admission, downloader and the 27-model catalog TESTED; no runtime, nothing downloadable | `ModelAdmission`, `ModelCatalog`, `ModelDownloaderTest` |
 | 4 | Visual perception (OCR/objects/VLM) | **NOT_STARTED** | — |
@@ -118,16 +131,19 @@ physical-device results yet; `TEST_REPORT.md` records that gap explicitly.
 
 ## 5. Known blockers
 
-1. **LAYA quality unverified** — the transport, codec and refusal path are proven against a running
+1. **No physical-device evidence** — nothing in this repository is `VERIFIED`. Thermal, battery,
+   background-execution and accelerator behaviour are entirely unobserved.
+2. **LAYA quality unverified** — the transport, codec and refusal path are proven against a running
    `laya-serve`, but only on its offline fixture checkpoint; real weights were not obtainable here, so
    no confident prediction and no calibration figure exists. LAYA's Java SDK also marks Android
    "not implemented yet", and a remote server breaks the local-first promise on a phone.
    (`LAYA_INTEGRATION.md` §7–8)
-2. **No Android SDK / Maven access in this environment** — Android compilation is deferred to CI.
-3. **No model artifacts, and no licences approved** — all 27 catalog entries are `CANDIDATE` with no
+3. **No signed release build yet** — the four signing secrets are not configured; see *what is not
+   real yet*.
+4. **No model artifacts, and no licences approved** — all 27 catalog entries are `CANDIDATE` with no
    recorded SHA-256, so nothing is downloadable. Two TTS candidates are non-commercial and four are
    gated. (`MODEL_CATALOG.md`, `MODEL_LICENSES.md`)
-4. **No physical device runs** — every performance, thermal, battery and accelerator claim is
+5. **No physical device runs** — every performance, thermal, battery and accelerator claim is
    unproven. The app reports `UNKNOWN` for GPU/NPU rather than asserting support.
 
 ## 6. Privacy and security posture (current state)
@@ -140,7 +156,9 @@ physical-device results yet; `TEST_REPORT.md` records that gap explicitly.
 
 ## 7. Next actions
 
-1. Get CI green: compile the Android module, fix the inevitable Compose/DI compile errors.
+1. ~~Get CI green: compile the Android module, fix the Compose/DI compile errors.~~ **Done** — all
+   jobs pass and the debug APK is an artifact. Next: configure the signing secrets so a tagged build
+   can produce a signed release.
 2. Integrate one real runtime (LiteRT-LM) behind `ModelRuntime`, with a downloadable, checksummed
    small text model, then replace `Models` placeholder with a real manager screen.
 3. Implement persistence (Room) for memory, audit log and installed models.

@@ -10,7 +10,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | FND-01 | Native Kotlin + Compose app shell | IMPLEMENTED | `app/src/main/kotlin/.../app` | Not compiled (no SDK here); CI builds it |
 | FND-02 | Design system (palette, type, spacing, components) | IMPLEMENTED | `ui/design/` | Reviewed; not rendered |
 | FND-03 | System/Light/Dark theme, default System, persisted | IMPLEMENTED | `ui/design/Theme.kt`, `ThemeViewModel` | Logic reviewed; needs UI test |
-| FND-04 | Branding incl. correct Devanagari समवेत | IMPLEMENTED | `res/values/strings.xml` | Rendering unverified on device |
+| FND-04 | Branding incl. correct Devanagari समवेत | IMPLEMENTED | `ui/screens/SettingsScreen.kt` (`Text("समवेत")`), `res/values/strings.xml` (`app_name`) | Rendered by Compose, which **compiles and lints clean in CI**; never seen on a device |
 | FND-05 | SANTOOR release mark (vector) | IMPLEMENTED | `res/drawable/ic_santoor.xml` | — |
 | FND-06 | Dependency injection, navigation, CI | IMPLEMENTED | `di/`, `ui/SamavetaRoot.kt`, `.github/workflows` | CI unrun (Actions permission unavailable) |
 | LAYA-01 | Real published contract, reconciled | TESTED | `core/.../laya/v1/LayaV1Contract.kt` | `LayaV1Test`; source cited in file header |
@@ -22,8 +22,8 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | LAYA-06c | Prediction quality on real LAYA weights | **BLOCKED** | — | Weight download unreachable from this environment |
 | LAYA-08 | Production HTTP transport | TESTED | `laya/v1/LayaUrlTransport.kt` | `LayaTransportTest` (12) against a loopback socket: no redirects, byte cap, timeout, bearer header, https-only |
 | LAYA-09 | Agent turn with honest outcomes | TESTED | `laya/v1/LayaAgent.kt` | `LayaAgentTest` (13): proposal/clarify/refusal/unavailable, never claims execution |
-| LAYA-10 | Endpoint + token configuration | IMPLEMENTED (not compiled) | `app/data/LayaSettingsRepository.kt`, Settings screen | Token in Keystore-backed encrypted prefs; https enforced; not run on a device |
-| LAYA-11 | App wired to the v1 client | IMPLEMENTED (not compiled) | `di/AppModule.kt`, `AgentScreen.kt` | Real `LayaUrlTransport`; Android layer still uncompiled |
+| LAYA-10 | Endpoint + token configuration | IMPLEMENTED (compiles in CI) | `app/data/LayaSettingsRepository.kt`, Settings screen | Token in Keystore-backed encrypted prefs; https enforced; not run on a device |
+| LAYA-11 | App wired to the v1 client | IMPLEMENTED (compiles in CI) | `di/AppModule.kt`, `AgentScreen.kt` | Real `LayaUrlTransport` wired from stored settings; compiles and lints clean, Hilt graph validated by `hiltJavaCompileDebug` in CI |
 | LAYA-06b | `laya-java` on-device (offline LAYA) | **BLOCKED** | — | Upstream: "Not implemented yet: … Android" |
 | LAYA-07 | PROPOSED planner contract | SUPERSEDED | `core/.../laya/LayaContract.kt` | Not LAYA's interface; wired to nothing |
 | MOD-01 | Model Registry with full metadata | TESTED | `model/ModelDescriptor.kt`, `ModelAdmission.kt` | invariant tests |
@@ -64,7 +64,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | SEC-05 | No false success | TESTED | `ActionVerifier` | type-enforced |
 | SEC-06 | Encrypted storage via Keystore | NOT_STARTED | — | dependency declared only |
 | CAP-01 | Notification/messaging/calendar/files capabilities | NOT_STARTED | — | authorization layer ready |
-| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 474/474 |
+| QLT-01 | Unit tests executed | TESTED | local harness + CI | 474/474 (408 core + 66 app) in both |
 | QLT-02 | Lint + static analysis in CI | IMPLEMENTED | CI `lintDebug` | unrun here |
 | QLT-03 | Instrumentation / UI tests | NOT_STARTED | — | — |
 | QLT-04 | Physical-device verification | NOT_STARTED | — | **blocks any VERIFIED status** |

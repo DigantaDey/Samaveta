@@ -32,11 +32,11 @@ most important one in the file.
 
 | Area | State | Evidence |
 |---|---|---|
-| Domain logic (`:core`, pure Kotlin) | **474 unit tests executed and passing** | `./tools/jvm-verify/verify.sh`, `docs/TEST_REPORT.md` |
+| Domain logic (`:core`, pure Kotlin) | **408 unit tests executed and passing** | `./tools/jvm-verify/verify.sh`, `docs/TEST_REPORT.md` |
 | LAYA integration | **Real transport + real agent turn, tested against a live `laya-serve`** | `LayaV1Test` (44), `LayaLiveContractTest` (15), `LayaTransportTest` (12), `LayaAgentTest` (13) |
 | LAYA decision *quality* | **Unmeasured** — only a randomly-initialised fixture checkpoint was ever reachable | `KNOWN_LIMITATIONS.md` §3 |
 | Model catalog | **27 candidates, all `CANDIDATE`, nothing downloadable** | `MODEL_CATALOG.md`, `ModelCatalogTest` (17) |
-| Android UI (`:app`) | **Compiles in CI; has never been run on a device** | `.github/workflows/verify.yml` |
+| Android UI (`:app`) | **Compiles, lints clean (0 findings) and passes 66 unit tests in CI; has never been run on a device** | `.github/workflows/verify.yml`, `docs/TEST_REPORT.md` |
 | Capability execution | **Not implemented** — the agent says "nothing was executed", because nothing is | `LayaAgent.Turn.Proposed` |
 | Voice, vision, browser, Room persistence | **Not implemented** | `FEATURE_MATRIX.md` |
 | Anything `VERIFIED` on hardware | **Nothing. There is no physical-device evidence at all.** | `docs/TEST_REPORT.md` §1 |
@@ -52,6 +52,7 @@ Two consequences worth stating plainly:
 ## Contents
 
 - [Try it now](#try-it-now)
+- [Get the APK](#get-the-apk)
 - [How it works](#how-it-works)
 - [The request path](#the-request-path)
 - [Safety model](#safety-model)
@@ -84,6 +85,21 @@ python3 tools/check/android-preflight.py
 To exercise the LAYA path end to end against a real server, see
 [`LAYA_INTEGRATION.md`](LAYA_INTEGRATION.md) §6 — it uses LAYA's own offline fixture server, so no
 model download is required.
+
+## Get the APK
+
+Every push to `main` or an `arena/**` branch builds and publishes an **unsigned debug APK**:
+
+1. Open the **Actions** tab → the **Verify** workflow → the newest green run.
+2. Download the **`samaveta-debug-apk`** artifact (≈18 MB, retained 14 days).
+3. `adb install -r samaveta-debug-apk/app-debug.apk`
+
+The debug build carries the `.debug` application-id suffix, so it installs alongside a release build.
+It has not been run on a physical device by this project — see the status table above.
+
+A **signed release APK** is produced only when the four signing secrets exist; see
+[Release signing and CI](#release-signing-and-ci). The release job refuses to emit an unsigned APK
+rather than call one a release.
 
 ## How it works
 
@@ -184,10 +200,17 @@ Four layers, each catching what the one below cannot:
 
 | Layer | Command | Count | Runs where |
 |---|---|---|---|
-| Domain unit tests | `./tools/jvm-verify/verify.sh` | 474 | Any JDK, no Android SDK, no network |
-| Gradle unit tests | `./gradlew verify` | 474 | CI and developer machines |
+| Local harness (core + Android-free app code) | `./tools/jvm-verify/verify.sh` | 474 (408 + 66) | Any JDK, no Android SDK, no network |
+| Real Gradle build | `./gradlew verify` | 474 (408 + 66) | CI, and developer machines with the Android SDK |
+| Android compile + lint | `:app:compileDebugKotlin`, `:app:lintDebug` | 0 findings | CI (needs the Android SDK) |
+| APK assembly + integrity | `:app:assembleDebug`, then `aapt2 dump badging` | — | CI |
 | Static guards | `repo-hygiene.py`, `android-preflight.py` | — | CI, every push |
 | Instrumentation / device | *not written* | 0 | — |
+
+CI's last green run reported, exactly: `core unit tests: tests 408, failures 0, errors 0, skipped 0,
+suites 19` and `:app unit tests: tests 66, failures 0, errors 0, skipped 0, suites 4`. Those numbers
+are produced by parsing the JUnit XML the build wrote, so a suite that silently does not run is a
+failure, not a pass.
 
 The offline harness exists because this sandbox cannot resolve the Android toolchain (no Maven
 Central, no SDK). Rather than assert that code works, it compiles the pure modules with a standalone
