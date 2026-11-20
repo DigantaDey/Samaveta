@@ -182,16 +182,18 @@ jobs:
             find app/build -name 'lint*' 2>/dev/null | head -20 | while IFS= read -r l; do echo "::error::$l"; done
             exit 0
           fi
+          # The text report *begins* with explanation prose, and GitHub keeps only 10 annotations per
+          # step, so the raw report cannot be echoed. Instead: the finding lines alone, grouped
+          # into chunks small enough that all of them fit inside the annotation budget.
           FINDINGS=$(grep -E '^[^ ].*:[0-9]+: (Error|Warning): ' "$REPORT" || true)
-          echo "--- total: $(printf '%s\n' "$FINDINGS" | grep -c . ) finding(s)"
-          echo "--- raw findings:"
-          printf '%s\n' "$FINDINGS" | head -n 40
-          for id in $(printf '%s\n' "$FINDINGS" | grep -oE '\[[A-Za-z]+\]$' | sort | uniq -c | sort -rn | awk '{print $2}' | tr -d '[]'); do
-            count=$(printf '%s\n' "$FINDINGS" | grep -c "\[$id\]$" || true)
-            first=$(printf '%s\n' "$FINDINGS" | grep "\[$id\]$" | head -n 1)
-            echo "::error::[$id] x$count — $first"
-          done
-          echo "::error::full list — $(printf '%s\n' "$FINDINGS" | head -n 40 | tr '\n' '|')"
+          TOTAL=$(printf '%s\n' "$FINDINGS" | grep -c . || true)
+          echo "--- total: $TOTAL finding(s)"
+          printf '%s\n' "$FINDINGS" | head -n 200
+          # At most 9 annotations, ~1200 chars each, so every finding id and its count is visible.
+          printf '%s\n' "$FINDINGS" | grep -oE '\[[A-Za-z]+\]$' | sort | uniq -c | sort -rn \
+            | awk '{gsub(/\[/,"",$2); gsub(/\]/,"",$2); print $2" x"$1}' \
+            | paste -sd' ' - | fold -w 1100 \
+            | while IFS= read -r chunk; do echo "::error::finding summary — $chunk"; done
           grep -E "^> Task .* FAILED|^\* What went wrong" -A3 lint.log | head -n 40 \
             | while IFS= read -r line; do echo "::error::$line"; done
 
