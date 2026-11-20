@@ -10,8 +10,8 @@
 
 | Area | Executed? | Result |
 |---|---|---|
-| `core` unit tests | **Yes** — real JVM | 267/267 pass |
-| App pure-logic unit tests | **Yes** — real JVM | 11/11 pass |
+| `core` unit tests | **Yes** — real JVM | 302/302 pass |
+| App pure-logic unit tests | **Yes** — real JVM | 55/55 pass |
 | Android UI compilation | No — no Android SDK in this environment | Deferred to CI |
 | Lint / static analysis | No | Deferred to CI |
 | Instrumentation tests | No | Not written yet |
@@ -24,7 +24,7 @@ $ ./tools/jvm-verify/verify.sh
 == compiling core tests
 == compiling app pure logic (Android-free sources only)
 == running tests
-Tests run: 278, Passed: 278, Failed: 0, Skipped: 0
+Tests run: 357, Passed: 357, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -165,6 +165,27 @@ and surfaced in diagnostics.
 **A test caught a real defect:** `ConfirmationBroker.grant()` deleted the pending request that
 `consume()` used to check expiry, so a granted confirmation never expired. Expiry now lives on the
 `ConfirmationGrant` itself and is covered by `expiredConfirmationIsRefusedEvenAfterItWasGranted`.
+
+### 3.6d Intelligence ingestion
+
+| Case | Result |
+|---|---|
+| RSS and Atom both parsed, `href` links handled | PASS |
+| CDATA unwrapped, HTML/script stripped from titles and summaries | PASS |
+| Entries without a title or http(s) link rejected individually | PASS |
+| `javascript:` links dropped at conversion | PASS |
+| Non-feed documents reported unreadable, not as an empty feed | PASS |
+| Absent or malformed dates stay `null` (never "now", never epoch 0) | PASS |
+| Feed summaries never claim full-text coverage | PASS |
+| Feeds capped at 200 entries and 4 MB | PASS |
+| Total source failure reported as a failed refresh, not a quiet day | PASS |
+| One failed source does not suppress other sources' stories | PASS |
+| Unreadable document counts as a failed source | PASS |
+| ETags round-trip; 304 accepted as healthy | PASS |
+| 304 must not be mistaken for a redirect (**real bug found and fixed**) | PASS |
+| Redirects refused with the target named | PASS |
+| HTML served as 200 refused by content type | PASS |
+| Feeds must be https, enforced at construction and fetch | PASS |
 
 ### 3.6 Task lifecycle and recovery (Scenario J)
 

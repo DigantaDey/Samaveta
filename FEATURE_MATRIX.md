@@ -40,12 +40,13 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | INT-02 | Entity extraction with provenance | TESTED | `EntityExtractor` | method + confidence asserted |
 | INT-03 | Date handling without fabrication | TESTED | `Dates` | unknown stays unknown |
 | INT-04 | Digest with mandatory attribution | TESTED | `intelligence/Digest.kt` | coverage limitation enforced |
-| INT-05 | Live source ingestion (RSS/web fetch) | NOT_STARTED | — | No network fetcher |
+| INT-05 | Live source ingestion (RSS/web fetch) | TESTED (pure logic) | `app/.../intelligence/` | parser + coordinator + https transport; no UI wiring |
+| INT-06 | Honest partial-failure reporting | TESTED | `IntelligenceRun.statusLine()` | total failure never rendered as a quiet day |
 | MEM-01 | Episodic/semantic/procedural memory | TESTED | `memory/MemoryModel.kt` | kinds, provenance, caps |
 | MEM-02 | Feedback-driven interests (11 signals) | TESTED | `InterestModel` | explicit≫inferred, damping, decay |
 | MEM-03 | Mute honoured absolutely | TESTED | `InterestModel` | sticky until explicit unmute |
 | MEM-04 | Preference inspection/edit/export/reset | IMPLEMENTED (API) | `MemoryStore` | No UI yet |
-| MEM-05 | Persistence (Room) | NOT_STARTED | — | — |
+| MEM-05 | Persistence (Room) | IN_PROGRESS | `persistence/Persistence.kt` | versioned codecs TESTED; Room wiring not written |
 | SEC-01 | Deny-by-default capability engine | TESTED | `security/CapabilityAuthorization.kt` | 20 tests |
 | SEC-02 | Emergency stop / pause automation | TESTED | `CapabilityAuthorizer` | emergency wins over grants |
 | SEC-03 | Single-use, target-bound confirmation | TESTED | `ConfirmationBroker` | replay + redirect refused |
@@ -53,7 +54,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | SEC-05 | No false success | TESTED | `ActionVerifier` | type-enforced |
 | SEC-06 | Encrypted storage via Keystore | NOT_STARTED | — | dependency declared only |
 | CAP-01 | Notification/messaging/calendar/files capabilities | NOT_STARTED | — | authorization layer ready |
-| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 278/278 |
+| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 357/357 |
 | QLT-02 | Lint + static analysis in CI | IMPLEMENTED | CI `lintDebug` | unrun here |
 | QLT-03 | Instrumentation / UI tests | NOT_STARTED | — | — |
 | QLT-04 | Physical-device verification | NOT_STARTED | — | **blocks any VERIFIED status** |

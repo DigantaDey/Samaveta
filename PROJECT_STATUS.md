@@ -3,7 +3,7 @@
 **Product:** SAMAVETA (समवेत) — *Intelligence, United.*
 **First major release:** SAMAVETA 1.0 — **SANTOOR**
 **Last updated:** 2026-11-20
-**Build state:** `core` + app pure-logic **compile and pass 278/278 unit tests** (executed locally).
+**Build state:** `core` + app pure-logic **compile and pass 357/357 unit tests** (executed locally).
 Android UI layer: **written, not yet compiled** — see *Verification environment* below.
 
 ---
@@ -18,7 +18,7 @@ What is real and proven:
 - A pure-Kotlin `core` module containing the security, LAYA-integration, memory, information-intelligence,
   device-health, model-admission, browser-policy and action-orchestration logic. Every one of
   those subsystems has executed unit tests
-  (278 tests, all passing) run with a real JVM.
+  (357 tests, all passing) run with a real JVM.
 - Android project scaffolding that configures the toolchain correctly (AGP 8.7.3 / Kotlin 2.0.21 /
   Compose BOM 2024.12.01 / Hilt / Room / DataStore / WorkManager, minSdk 28, arm64-only).
 - A completed design system and brand identity, including the SANTOOR release mark.
@@ -27,7 +27,8 @@ What is **not** real yet, and must not be described as working:
 
 - The Compose UI has never been compiled (no Android SDK in this environment) or run on a device.
 - No model runtime is integrated. No model is downloadable. `Models` is empty by design.
-- No voice, vision/OCR, browser or Android capability integration exists.
+- No voice, vision/OCR or Android capability *integration* exists; the browser and capability
+  policy layers are tested, but nothing is connected to a WebView, an SMS manager or a listener.
 - LAYA is **not connected**: no contract has been supplied. The adapter is `NOT_CONFIGURED`.
 - No APK has been produced or installed.
 
@@ -39,7 +40,7 @@ JDK or Android SDK is preinstalled.
 
 To avoid simply *asserting* that code works, the project carries its own verification harness
 (`tools/jvm-verify/`) which compiles the modules with a standalone Kotlin compiler and executes the
-JUnit-style tests. That is the source of the 278/278 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
+JUnit-style tests. That is the source of the 357/357 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
 
 **Consequence:** the Android layer's correctness is *reviewed*, not *executed*, in this environment.
 CI (`.github/workflows/verify.yml`) is the mechanism that closes that gap — it builds, lints and
@@ -57,8 +58,8 @@ unit-tests the Android module and produces a debug APK.
 | 5 | Voice (ASR/TTS/Voice Lab/speaker ID) | **NOT_STARTED** | — |
 | 6 | Android capabilities | **PARTIAL**: authorization + action pipeline + plan runner TESTED; no Android integration | `SecurityTest`, `ActionPipelineTest`, `PlanRunnerTest` |
 | 7 | Agent browser | **PARTIAL**: policy/session/reader core TESTED; no WebView integration | `BrowserTest` |
-| 8 | Information intelligence | **IMPLEMENTED and TESTED** (pipeline only; no network fetcher) | `IntelligenceTest` |
-| 9 | Memory and learning | **IMPLEMENTED and TESTED** (model only; no persistence) | `MemoryTest` |
+| 8 | Information intelligence | **TESTED** through fetch → parse → digest; not yet wired to the UI | `IntelligenceTest`, `FeedParserTest`, `IntelligenceCoordinatorTest`, `HttpFeedFetcherTest` |
+| 9 | Memory and learning | **TESTED** (model + persistence codec; no Room wiring yet) | `MemoryTest`, `PersistenceTest` |
 | 10 | Integration and optimisation | **NOT_STARTED** | — |
 | 11 | SANTOOR release candidate | **NOT_STARTED** | — |
 
@@ -71,7 +72,7 @@ Status vocabulary is the directive's: `NOT_STARTED`, `IN_PROGRESS`, `IMPLEMENTED
 Executed locally by `tools/jvm-verify/verify.sh`:
 
 ```
-Tests run: 278, Passed: 278, Failed: 0, Skipped: 0
+Tests run: 357, Passed: 357, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -90,6 +91,10 @@ VERDICT: PASS
 | `BrowserTest` | 36 | Scheme/host policy, userinfo spoofing, stale refs, challenge suspension, reader mode |
 | `ActionPipelineTest` | 26 | Deny/confirm/execute/verify/audit ordering, expiry, no false success |
 | `PlanRunnerTest` | 23 | Plan escalation rejection, per-step honesty, cancellation at step boundaries |
+| `PersistenceTest` | 24 | Versioned codecs, corrupt-record isolation, mid-run recovery |
+| `FeedParserTest` | 19 | Hostile RSS/Atom input, entity handling, absent dates stay unknown |
+| `IntelligenceCoordinatorTest` | 21 | Partial vs total source failure, ETags, muted topics |
+| `HttpFeedFetcherTest` | 15 | https-only, no redirects, 304 vs 3xx, content-type and size limits |
 
 These are *unit* tests. There are **no** instrumentation tests, **no** UI tests and **no**
 physical-device results yet; `TEST_REPORT.md` records that gap explicitly.

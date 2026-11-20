@@ -7,7 +7,7 @@ after a musical instrument.
 
 ### Added
 
-**Domain core (`:core`, pure Kotlin, 278 unit tests)**
+**Domain core (`:core`, pure Kotlin, 302 unit tests) and app pure logic (55 tests)**
 - `json` — dependency-free JSON parser/writer that rejects duplicate keys, control characters,
   trailing content and malformed numbers, and reports precise error positions. Integers keep their
   literal so 64-bit values survive parsing.
@@ -46,9 +46,20 @@ after a musical instrument.
 - `security` — `ActionPipeline`, the single sanctioned path from a proposed action to a user-facing
   outcome: authorize → confirm → execute → verify → audit. Success is unrepresentable without
   confirmed evidence, and a denial never reaches the executor.
+- `persistence` — versioned JSON codecs for memories, the audit log and tasks. Corrupt records are
+  isolated and reported, a newer schema version is refused rather than guessed, and a task stored
+  mid-run is flagged for recovery instead of being resumed.
 - `orchestration` — `PlanRunner` executes a LAYA plan under SAMAVETA's authority. Undeclared or
   unknown capabilities reject the plan before anything runs; each step is reported honestly, skipped
   steps are reported as NOT_RUN, and cancellation stops at a step boundary.
+
+**Intelligence ingestion (`:app`, pure logic, compiled and tested by the JVM harness)**
+- Defensive RSS/Atom parser treating every feed as hostile input: per-entry rejection, markup
+  stripping, bounded entities, entry and size caps, and dates that stay unknown when absent.
+- `IntelligenceCoordinator` that reports partial failure honestly — a failed source is named, and a
+  total failure says "failed refresh" rather than presenting an empty digest as a quiet day.
+- https-only feed transport with no redirect following, content-type and byte limits, and 304
+  handled as success.
 
 **Android app (`:app`, not yet compiled — see `PROJECT_STATUS.md`)**
 - Gradle/AGP/Kotlin/Compose/Hilt/Room/DataStore/WorkManager configuration, version catalog,
@@ -85,6 +96,8 @@ after a musical instrument.
   Expiry now travels with the `ConfirmationGrant` and is asserted by a regression test.
 - `ActionPipeline` required an approval token that no component could legitimately mint, so every
   confirmation-gated action was unreachable. Approvals now go through `ActionPipeline.approve()`.
+- The feed fetcher's redirect branch swallowed HTTP 304, turning every cheap conditional refresh
+  into a reported failure. 304 is now checked first.
 
 ### Known gaps
 See `KNOWN_LIMITATIONS.md`. In short: no Android build yet, no model runtime, LAYA not connected, no
