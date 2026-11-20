@@ -57,18 +57,15 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("boolean", "ALLOW_LAYA_MOCK", "false")
-            // Fails the build, at configuration time, when release signing material is absent —
-            // rather than emitting an `-unsigned.apk` that is not installable and calling the job a
-            // release. The guard is evaluated only while a release build is being configured, so
-            // debug builds, `lintDebug` and unit tests are unaffected.
+            // Always attach the release signing config: if the material is absent, storeFile is
+            // null and Gradle refuses to sign, rather than emitting an `-unsigned.apk` that is not
+            // installable and calling the job a release.
+            //
+            // The missing-material check is a task, not a `throw` here. This block is executed for
+            // *every* invocation, including `:core:test` and `lintDebug`, so a configuration-time
+            // throw failed the debug jobs too — which is exactly what happened on the first run of
+            // this file.
             signingConfig = signingConfigs.getByName("release")
-            if (signingConfig?.storeFile == null) {
-                throw GradleException(
-                    "Release signing material is missing. Set SAMAVETA_KEYSTORE_PATH, " +
-                        "SAMAVETA_KEYSTORE_PASSWORD, SAMAVETA_KEY_ALIAS and SAMAVETA_KEY_PASSWORD. " +
-                        "An unsigned APK is not a release.",
-                )
-            }
         }
     }
 
@@ -122,6 +119,28 @@ android {
             // ABI that cannot run inference would be a false promise of support.
             "ChromeOsAbiSupport",
         )
+    }
+}
+
+// Release builds must carry signing material. Checked as a task (execution time), so it can only
+// fail a job that actually builds a release; nothing about debug, lint or unit tests touches it.
+tasks.matching {
+    // `validateSigningRelease` is the task AGP would otherwise fail with its own terser message.
+    it.name in setOf("assembleRelease", "bundleRelease", "validateSigningRelease")
+}.configureEach {
+    doFirst {
+        val missing = listOf(
+            "SAMAVETA_KEYSTORE_PATH",
+            "SAMAVETA_KEYSTORE_PASSWORD",
+            "SAMAVETA_KEY_ALIAS",
+            "SAMAVETA_KEY_PASSWORD",
+        ).filter { System.getenv(it).isNullOrBlank() }
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "Release signing material is missing: ${missing.joinToString()}. An unsigned APK " +
+                    "is not a release — see README.md#release-signing, or build the debug variant.",
+            )
+        }
     }
 }
 
