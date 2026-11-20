@@ -184,6 +184,62 @@ def check_hilt_providers():
     return qualifiers
 
 
+def check_types_resolve():
+    """Every type used in an @Inject constructor signature must be visible at that call site.
+
+    CI failed with `[ksp] InjectProcessingStep was unable to process
+    'ThemeViewModel(error.NonExistentClass,…)'`, which is what KSP reports when a constructor
+    parameter's type is not imported. A plain unresolved reference in the same position would have
+    said so directly. This check catches the missing-import case before Gradle runs.
+    """
+    core_types = set()
+    for d, _, fs in os.walk(os.path.join(ROOT, "core/src/main/kotlin")):
+        for f in fs:
+            if f.endswith(".kt"):
+                text = read(os.path.join(d, f))
+                core_types.update(re.findall(r"^(?:\s*)(?:@\w+\s+)*(?:class|interface|object|enum class|sealed interface|sealed class|data class)\s+([A-Za-z0-9_]+)", text, re.M))
+                # enum/data class entries as declared members are captured by the same pattern.
+
+    for d, _, fs in os.walk(os.path.join(ROOT, "app/src/main/kotlin")):
+        for f in fs:
+            if not f.endswith(".kt"):
+                continue
+            path = os.path.join(d, f)
+            text = read(path)
+            without_comments = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+            without_comments = re.sub(r"//[^\n]*", "", without_comments)
+            imported = set()
+            for m in re.finditer(r"^import\s+([\w.]+)", without_comments, re.M):
+                imported.add(m.group(1).split(".")[-1])
+            declared_local = set(re.findall(r"\b(?:class|interface|object|enum class|fun interface)\s+([A-Za-z0-9_]+)", without_comments))
+            package = re.search(r"^package\s+([\w.]+)", without_comments, re.M)
+            same_package = set()
+            if package:
+                pkg_dir = os.path.join(ROOT, "app/src/main/kotlin", package.group(1).replace(".", os.sep))
+                if os.path.isdir(pkg_dir):
+                    for other in os.listdir(pkg_dir):
+                        if other.endswith(".kt"):
+                            same_package.update(re.findall(
+                                r"\b(?:class|interface|object|fun interface)\s+([A-Za-z0-9_]+)", read(os.path.join(pkg_dir, other))))
+            for m in re.finditer(r"constructor\s*\((.*?)\)\s*:", without_comments, re.S):
+                for raw in re.split(r",\s*(?=\w|@)", m.group(1)):
+                    raw = re.sub(r"@\w+(\([^)]*\))?\s*", "", raw).strip()
+                    piece = re.search(r":\s*([A-Za-z0-9_.]+)", raw)
+                    if not piece:
+                        continue
+                    typ = piece.group(1).split(".")[0]
+                    if typ in ("String", "Int", "Long", "Boolean", "Double", "Float", "List", "Set", "Map", "Unit"):
+                        continue
+                    if typ in imported or typ in declared_local or typ in same_package:
+                        continue
+                    if typ in core_types:
+                        fail(f"{os.path.relpath(path, ROOT)}: constructor parameter type {typ} is not imported")
+                    # Unknown types are reported too: an unimported project type is exactly this bug.
+                    elif typ[0].isupper():
+                        fail(f"{os.path.relpath(path, ROOT)}: constructor parameter type {typ} is not resolvable "
+                             f"(not imported, not declared here, not a core type)")
+
+
 def main():
     if not os.path.isdir(os.path.join(ROOT, "app")):
         print("app module missing")
@@ -192,6 +248,7 @@ def main():
     check_kotlin_resource_refs()
     check_manifest_classes()
     check_hilt_providers()
+    check_types_resolve()
     if problems:
         print(f"Android pre-flight: {len(problems)} problem(s)")
         for p in problems:

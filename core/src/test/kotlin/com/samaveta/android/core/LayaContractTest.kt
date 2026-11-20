@@ -33,6 +33,7 @@ import com.samaveta.android.core.model.ModelRegistry
 import com.samaveta.android.core.model.Quantization
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 
 class LayaContractTest {
 
@@ -67,8 +68,16 @@ class LayaContractTest {
     private fun planResponse(requestId: String, steps: String = """[{"index":0,"kind":"model_inference","model_id":"llama-3.2-1b","instruction":"Answer"}]""") =
         """{"schema_version":"$LAYA_WIRE_SCHEMA_VERSION","type":"plan","request_id":"$requestId","steps":$steps,"reasoning_summary":"simple"}"""
 
-    private suspend fun awaitOutcome(adapter: LayaAdapter, request: LayaRequest): LayaOutcome =
-        async { adapter.decide(request) }.await()
+    /**
+     * Bridges the adapter's suspend call into this test's blocking style.
+     *
+     * `async { … }.await()` needs a `CoroutineScope` receiver: the sandbox harness defines a
+     * hand-written `async` that happens to work at top level, while the real
+     * `kotlinx-coroutines-test` — which Gradle uses — does not, so this file failed to compile in CI
+     * while passing offline. `runBlocking` is the primitive that exists in both worlds.
+     */
+    private fun awaitOutcome(adapter: LayaAdapter, request: LayaRequest): LayaOutcome =
+        runBlocking { adapter.decide(request) }
 
     @Test
     fun encodesRequestWithSchemaVersionAndInventory() {
