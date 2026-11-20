@@ -61,7 +61,8 @@ stakeholder as working.
 ## Documentation gaps
 
 - `MODEL_BENCHMARKS.md` is a methodology document; it contains **no measured results**, because no
-  model has been run.
+  model has been run. It exists so that the missing measurements are a recorded state rather than an
+  omission, and it defines the promotion gate from `CANDIDATE` to `EVALUATED`.
 - `REQUIREMENTS.md` tracks the directive; traceability to tests exists only for the implemented areas.
 - No user guide or release notes yet: writing them before the product works would produce
   instructions that cannot be followed.
