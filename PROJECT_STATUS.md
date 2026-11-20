@@ -3,7 +3,7 @@
 **Product:** SAMAVETA (समवेत) — *Intelligence, United.*
 **First major release:** SAMAVETA 1.0 — **SANTOOR**
 **Last updated:** 2026-11-20
-**Build state:** `core` + app pure-logic **compile and pass 472/472 unit tests** (executed locally).
+**Build state:** `core` + app pure-logic **compile and pass 474/474 unit tests** (executed locally).
 Android UI layer: **written, not yet compiled** — see *Verification environment* below.
 
 ---
@@ -18,7 +18,7 @@ What is real and proven:
 - A pure-Kotlin `core` module containing the security, LAYA-integration, memory, information-intelligence,
   device-health, model-admission, browser-policy and action-orchestration logic. Every one of
   those subsystems has executed unit tests
-  (472 tests, all passing) run with a real JVM.
+  (474 tests, all passing) run with a real JVM.
 - Android project scaffolding that configures the toolchain correctly (AGP 8.7.3 / Kotlin 2.0.21 /
   Compose BOM 2024.12.01 / Hilt / Room / DataStore / WorkManager, minSdk 28, arm64-only).
 - A completed design system and brand identity, including the SANTOOR release mark.
@@ -30,7 +30,7 @@ What is **not** real yet, and must not be described as working:
 - No voice, vision/OCR or Android capability *integration* exists; the browser and capability
   policy layers are tested, but nothing is connected to a WebView, an SMS manager or a listener.
 - A **real HTTP transport** (`LayaUrlTransport`) and a **real agent turn** (`LayaAgent`), both
-  exercised against a live socket in `LayaTransportTest` (11) and `LayaAgentTest` (13). The app now
+  exercised against a live socket in `LayaTransportTest` (12) and `LayaAgentTest` (13). The app now
   constructs the client from what the user stored, with the bearer token in the Keystore, and the
   Agent screen shows the engine's own sentences. No capability executor exists, so every proposal
   says nothing was executed.
@@ -51,7 +51,7 @@ JDK or Android SDK is preinstalled.
 
 To avoid simply *asserting* that code works, the project carries its own verification harness
 (`tools/jvm-verify/`) which compiles the modules with a standalone Kotlin compiler and executes the
-JUnit-style tests. That is the source of the 472/472 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
+JUnit-style tests. That is the source of the 474/474 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
 
 **Consequence:** the Android layer's correctness is *reviewed*, not *executed*, in this environment.
 CI (`.github/workflows/verify.yml`) is the mechanism that closes that gap — it builds, lints and
@@ -63,7 +63,7 @@ unit-tests the Android module and produces a debug APK.
 |---|---|---|---|
 | 0 | Repository + feasibility audit | **VERIFIED** | `docs/DECISIONS.md` D-001…D-003 |
 | 1 | Native foundation (structure, design system, theme, DI, CI) | **IMPLEMENTED** (UI not compiled) | `app/src/main/kotlin/.../ui/design`, CI workflow |
-| 2 | LAYA integration | **TESTED against a real `laya-serve` on its offline fixture checkpoint**, plus a real transport and agent turn; quality on real weights unproven | `LayaV1Test` (44), `LayaLiveContractTest` (15), `LayaTransportTest` (11), `LayaAgentTest` (13); `LAYA_INTEGRATION.md` |
+| 2 | LAYA integration | **TESTED against a real `laya-serve` on its offline fixture checkpoint**, plus a real transport and agent turn; quality on real weights unproven | `LayaV1Test` (44), `LayaLiveContractTest` (15), `LayaTransportTest` (12), `LayaAgentTest` (13); `LAYA_INTEGRATION.md` |
 | 3 | Model infrastructure | **PARTIAL**: registry, admission, downloader and the 27-model catalog TESTED; no runtime, nothing downloadable | `ModelAdmission`, `ModelCatalog`, `ModelDownloaderTest` |
 | 4 | Visual perception (OCR/objects/VLM) | **NOT_STARTED** | — |
 | 5 | Voice (ASR/TTS/Voice Lab/speaker ID) | **NOT_STARTED** | — |
@@ -83,7 +83,7 @@ Status vocabulary is the directive's: `NOT_STARTED`, `IN_PROGRESS`, `IMPLEMENTED
 Executed locally by `tools/jvm-verify/verify.sh`:
 
 ```
-Tests run: 472, Passed: 472, Failed: 0, Skipped: 0
+Tests run: 474, Passed: 474, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 

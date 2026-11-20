@@ -63,6 +63,17 @@ enum class LayaV1State {
 
     /** Configured but never successfully contacted yet. */
     NEVER_REACHED,
+
+    /**
+     * The server is reachable and answering, but it refuses this build's credentials.
+     *
+     * This state exists because `laya-serve`'s `/health` is **unauthenticated**: a wrong bearer token
+     * still returns `200 {"status":"ok"}` while every `/v1/systemone` call answers
+     * `401 {"detail":"invalid or missing bearer token"}`. Treating a successful health check as
+     * "connected" therefore produced an app that claimed a working integration while rejecting every
+     * message. Verified live, not hypothesised.
+     */
+    UNAUTHORISED,
     ;
 
     val userLabel: String
@@ -71,6 +82,7 @@ enum class LayaV1State {
             CONNECTED -> "LAYA connected"
             DEGRADED -> "LAYA degraded"
             NEVER_REACHED -> "LAYA not yet reached"
+            UNAUTHORISED -> "LAYA rejects this token"
         }
 
     /** Only a health-confirmed connection may be described as connected. */
@@ -98,15 +110,27 @@ class LayaV1Client(
     var lastFailure: LayaV1Failure? = null
         private set
 
+    /**
+     * True once the server has refused this build's credentials, until a real call succeeds.
+     *
+     * Kept separately from [state] because `/health` is unauthenticated: a health check can succeed
+     * against a server that will reject every actual request, and that combination must not be
+     * reported as a working connection.
+     */
+    var credentialsRejected: Boolean = false
+        private set
+
     fun health(): LayaHealth {
         val body = execute("/health", "GET", null)
         val health = LayaV1Codec.decodeHealth(body)
-        if (health.isAlive) {
-            state = LayaV1State.CONNECTED
-            lastFailure = null
-        } else {
-            state = LayaV1State.DEGRADED
+        state = when {
+            // A liveness probe is not authentication. If this build's token has already been refused,
+            // a healthy `/health` must not be allowed to overwrite that fact.
+            credentialsRejected -> LayaV1State.UNAUTHORISED
+            health.isAlive -> LayaV1State.CONNECTED
+            else -> LayaV1State.DEGRADED
         }
+        if (health.isAlive && !credentialsRejected) lastFailure = null
         return health
     }
 
@@ -155,10 +179,15 @@ class LayaV1Client(
                 )
                 if (response.statusCode in 200..299) {
                     if (path != "/health") {
+                        // Only a real, authenticated call proves the credentials work.
+                        credentialsRejected = false
                         state = LayaV1State.CONNECTED
                         lastFailure = null
                     }
                     return response.body
+                }
+                if (response.statusCode == 401 || response.statusCode == 403) {
+                    credentialsRejected = true
                 }
                 val failure = LayaV1Codec.decodeError(response.statusCode, response.body)
                 lastError = failure
@@ -178,7 +207,13 @@ class LayaV1Client(
             } catch (failure: Exception) {
                 val unreachable = LayaV1Failure.Unreachable(failure.message ?: "connection failed", failure)
                 lastError = unreachable
-                if (attempt == config.maxRetries) throw unreachable
+                if (attempt == config.maxRetries) {
+                    // Observed live: the final attempt used to throw without marking anything, so a
+                    // refused connection left the client reporting NEVER_REACHED — the same state as
+                    // a build that was never asked to do anything. A failed call must be visible.
+                    markFailure(unreachable)
+                    throw unreachable
+                }
             }
             attempt++
             if (attempt <= config.maxRetries && config.retryBackoffMs > 0) {
@@ -192,10 +227,10 @@ class LayaV1Client(
 
     private fun markFailure(failure: LayaV1Failure) {
         lastFailure = failure
-        state = if (failure is LayaV1Failure.NotConfigured) {
-            LayaV1State.NOT_CONFIGURED
-        } else {
-            LayaV1State.DEGRADED
+        state = when {
+            failure is LayaV1Failure.NotConfigured -> LayaV1State.NOT_CONFIGURED
+            credentialsRejected -> LayaV1State.UNAUTHORISED
+            else -> LayaV1State.DEGRADED
         }
     }
 }

@@ -7,7 +7,7 @@ after a musical instrument.
 
 ### Added
 
-**Domain core (`:core`, pure Kotlin, 406 unit tests) and app pure logic (66 tests)**
+**Domain core (`:core`, pure Kotlin, 408 unit tests) and app pure logic (66 tests)**
 - `json` — dependency-free JSON parser/writer that rejects duplicate keys, control characters,
   trailing content and malformed numbers, and reports precise error positions. Integers keep their
   literal so 64-bit values survive parsing.

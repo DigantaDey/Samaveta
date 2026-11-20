@@ -364,6 +364,9 @@ class AgentViewModel @Inject constructor(
         LayaV1State.NEVER_REACHED -> LayaIntegrationState.CONFIGURED_UNVERIFIED
         LayaV1State.CONNECTED -> LayaIntegrationState.VERIFIED
         LayaV1State.DEGRADED -> LayaIntegrationState.DEGRADED
+        // A refused token is not "degraded": nothing works until it is fixed, and saying so is the
+        // only way the user knows to correct it in Settings.
+        LayaV1State.UNAUTHORISED -> LayaIntegrationState.DEGRADED
     }
 
     fun cancel() {

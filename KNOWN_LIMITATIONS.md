@@ -47,8 +47,13 @@ stakeholder as working.
 
 ## Behavioural limitations
 
-- **Chat is not useful yet.** The Agent replies that it cannot plan, because it cannot. This is
-  intentional honesty, not a placeholder to be removed before the engine exists.
+- **Chat is not useful yet.** The Agent asks LAYA what an utterance is, and — against any checkpoint
+  this project can actually run — receives an answer whose options have collapsed, so it refuses and
+  says why. Against a real checkpoint it would propose a capability and then say that nothing was
+  executed. Both are intentional honesty, not placeholders.
+- **`laya-serve`'s `/health` is unauthenticated.** A health check therefore proves reachability, not
+  that the token works; the app reports a separate "rejects this token" state once a real call
+  returns 401. Do not treat a green health check as a working integration.
 - **`System` theme** follows the system, including battery-saver dark mode; this is unverified on
   device because the UI has not been run.
 - **Model admission** is conservative: a model can be refused for RAM even when the device might

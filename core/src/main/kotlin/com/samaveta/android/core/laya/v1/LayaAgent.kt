@@ -133,13 +133,25 @@ class LayaAgent(
             "the decision engine is not configured. Set its address in Settings.",
             null,
         )
-        is LayaV1Failure.Unreachable -> Turn.EngineUnavailable("the decision engine could not be reached", message)
+        // `message` here already reads "LAYA could not be reached: …", so the cause is quoted instead
+        // of repeating the same phrase twice in one sentence.
+        is LayaV1Failure.Unreachable -> Turn.EngineUnavailable(
+            "the decision engine could not be reached",
+            cause?.message ?: message,
+        )
         is LayaV1Failure.Timeout -> Turn.EngineUnavailable(
             "the decision engine did not answer in time. It may still have been working, so nothing was retried.",
             message,
         )
         is LayaV1Failure.Overloaded -> Turn.EngineUnavailable("the decision engine is at capacity; try again shortly", null)
-        is LayaV1Failure.Rejected -> Turn.EngineUnavailable("the decision engine rejected the request", detail)
+        is LayaV1Failure.Rejected -> if (statusCode == 401 || statusCode == 403) {
+            Turn.EngineUnavailable(
+                "the decision engine refused this build's token. Check the token in Settings.",
+                detail,
+            )
+        } else {
+            Turn.EngineUnavailable("the decision engine rejected the request", detail)
+        }
         is LayaV1Failure.Malformed -> Turn.Refused("The engine's answer could not be trusted, so nothing was acted on: $message")
         is LayaV1Failure.ServerError -> Turn.EngineUnavailable("the decision engine failed internally", detail)
     }

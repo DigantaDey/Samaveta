@@ -45,6 +45,13 @@ class LayaTransportTest {
         instance.createContext("/") { exchange ->
             try {
                 handler(exchange)
+            } catch (failure: Throwable) {
+                System.err.println("handler failed: $failure")
+                try {
+                    exchange.sendResponseHeaders(500, -1)
+                } catch (ignored: Throwable) {
+                    // The response may already have been committed; nothing useful to do here.
+                }
             } finally {
                 exchange.close()
             }
@@ -140,6 +147,26 @@ class LayaTransportTest {
     }
 
     @Test
+    fun aPostErrorBodyIsNotLostToStreamingModeBuffering() {
+        // Regression: with `setFixedLengthStreamingMode`, a JDK HttpURLConnection returns a null
+        // error stream for a POST that fails, so LAYA's `detail` vanished. The transport no longer
+        // uses that mode; this test is what keeps it that way.
+        val detail = """{"detail":"max_len exceeds server limit (999999 > 8192)"}"""
+        val base = serve { exchange ->
+            exchange.requestBody.use { it.readBytes() }
+            respond(exchange, 422, detail)
+        }
+        val response = LayaUrlTransport().call(
+            "$base/v1/systemone",
+            "POST",
+            """{"state":"a state long enough to be a real body","questions":{}}""",
+            5_000,
+        )
+        assertEquals(422, response.statusCode)
+        assertEquals(detail, response.body)
+    }
+
+    @Test
     fun anOversizedResponseIsDiscardedRatherThanReadIntoMemory() {
         val base = serve { exchange ->
             val big = "x".repeat(200_000)
@@ -224,6 +251,52 @@ class LayaTransportTest {
     }
 
     @Test
+    fun aHealthyServerThatRejectsTheTokenIsNotReportedAsConnected() {
+        // Verified live against laya-serve: /health is UNAUTHENTICATED, so it answers 200 with a wrong
+        // token while every prediction is refused with 401. The first version of this client upgraded
+        // itself to CONNECTED on that health check and then failed every message, which is exactly the
+        // "claims to be connected while nothing works" defect this project exists to avoid.
+        val health = javaClass.classLoader!!
+            .getResourceAsStream("laya-live/health.json")!!
+            .use { it.readBytes().toString(Charsets.UTF_8) }
+        val base = serve { exchange ->
+            if (exchange.requestURI.path == "/health") {
+                respond(exchange, 200, health)
+            } else {
+                respond(exchange, 401, """{"detail":"invalid or missing bearer token"}""")
+            }
+        }
+        val client = LayaV1Client(
+            config = LayaV1Config(baseUrl = base, apiKey = "wrong", timeoutMs = 5_000),
+            transport = LayaUrlTransport(apiKey = "wrong"),
+        )
+
+        // Health alone still looks fine — that is the trap.
+        assertTrue(client.health().isAlive)
+        assertEquals(LayaV1State.CONNECTED, client.state)
+
+        // A real call exposes it, and the state must fall to UNAUTHORISED rather than DEGRADED.
+        try {
+            client.predict(
+                LayaPredictRequest(
+                    state = LayaQuestions.state("hi", "en"),
+                    questions = LayaQuestions.core("en"),
+                ),
+            )
+            fail("expected the 401 to surface")
+        } catch (expected: LayaV1Failure) {
+            assertTrue(expected.message!!.contains("invalid or missing bearer token"))
+        }
+        assertTrue(client.credentialsRejected)
+        assertEquals(LayaV1State.UNAUTHORISED, client.state)
+        assertFalse("a refused token is not a working connection", client.state.isOperational)
+
+        // And a later successful health check must not be allowed to launder that back to CONNECTED.
+        assertTrue(client.health().isAlive)
+        assertEquals(LayaV1State.UNAUTHORISED, client.state)
+    }
+
+    @Test
     fun aRejectedCallLeavesTheClientVisiblyDegradedWithTheServersOwnWords() {
         val base = serve { exchange ->
             respond(exchange, 401, """{"detail":"invalid or missing bearer token"}""")
@@ -240,7 +313,9 @@ class LayaTransportTest {
             assertTrue(failure.message!!.contains("invalid or missing bearer token"))
         }
         assertFalse("a failed call must not be reported as connected", client.state == LayaV1State.CONNECTED)
-        assertEquals(LayaV1State.DEGRADED, client.state)
+        // A 401 is a credential problem, not a flaky server: it gets its own state so Settings can say
+        // what to fix.
+        assertEquals(LayaV1State.UNAUTHORISED, client.state)
     }
 
     @Test

@@ -47,6 +47,29 @@ near-uniform and it collapses every question's options.
    `LayaUsage.lostEvidence` and refuses the action with a message naming the collapse — the previous
    message said "0 token(s) dropped", which was nonsense.
 
+## What a second live run found (the real transport)
+
+The transport and the agent turn were later exercised against the same fixture server through real
+sockets. Three defects only a live server could expose, all now fixed and regression-tested:
+
+1. **`/health` is unauthenticated.** A wrong bearer token returns `200 {"status":"ok"}` from `/health`
+   while every `/v1/systemone` answers `401 {"detail":"invalid or missing bearer token"}`. The client
+   used to upgrade itself to `CONNECTED` on that health check and then fail every message — an app
+   claiming a working integration while refusing all work. There is now a distinct
+   `LayaV1State.UNAUTHORISED`, and a health check can no longer launder it back to `CONNECTED`.
+2. **A failed connection reported `NEVER_REACHED`.** The last retry threw without marking the failure,
+   so a genuinely unreachable server looked identical to one that was never asked. It now reports
+   `DEGRADED`.
+3. **`setFixedLengthStreamingMode` swallowed error bodies.** Reproduced on the JDK: fixed-length
+   streaming plus an error response makes `getErrorStream()` return `null`, so LAYA's `detail` — which
+   names the exact rejected field — vanished. The transport now writes the body without that mode.
+
+Measured against the running server, for the record: `health` → `200` (3 checkpoints, `cpu`,
+`device_is_preference:false`); a valid token → `200` on `/v1/systemone` and `/v1/systemone/batch`
+(2 states, 88 input tokens each, routed to `multilingual`); a wrong token → `401`
+`invalid or missing bearer token`; an unknown model → `422` naming the valid checkpoints; a 999 999
+`max_len` → refused client-side before any request (`maxLen outside 1..8192`).
+
 ## What these files do NOT prove
 
 - **No quality benchmark.** Server B's checkpoint is randomly initialised; accuracy, calibration and

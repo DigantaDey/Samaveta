@@ -66,9 +66,13 @@ class LayaUrlTransport(
 
         try {
             if (body != null) {
-                val bytes = body.toByteArray(Charsets.UTF_8)
-                connection.setFixedLengthStreamingMode(bytes.size)
-                connection.outputStream.use { it.write(bytes) }
+                // Deliberately *not* `setFixedLengthStreamingMode`. Executed, not assumed: on a JDK
+                // `HttpURLConnection`, fixed-length streaming mode plus an error response makes
+                // `getErrorStream()` return null, which silently discards LAYA's `detail` — the text
+                // that names the exact field a `422` rejected. Losing it would turn "max_len exceeds
+                // server limit" into "something went wrong". LAYA request bodies are a few kilobytes,
+                // so buffering them costs nothing.
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             }
             val status = connection.responseCode
             // Error bodies matter: LAYA's `422` names the exact field that was wrong, and losing it

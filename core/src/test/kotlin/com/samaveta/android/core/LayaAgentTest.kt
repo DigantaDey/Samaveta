@@ -84,6 +84,9 @@ class LayaAgentTest {
         val message = turn.userMessage
         assertTrue("should not claim 'not configured': $message", !message.contains("not configured"))
         assertTrue("should say it could not be reached: $message", message.contains("could not be reached"))
+        // Found live: the final attempt threw without marking the failure, so a refused connection
+        // still reported NEVER_REACHED — indistinguishable from "never asked".
+        assertEquals(LayaV1State.DEGRADED, agent(base).also { it.handle("call Asha", "en-IN") }.state())
     }
 
     @Test

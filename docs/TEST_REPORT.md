@@ -10,7 +10,7 @@
 
 | Area | Executed? | Result |
 |---|---|---|
-| `core` unit tests | **Yes** — real JVM | 406/406 pass |
+| `core` unit tests | **Yes** — real JVM | 408/408 pass |
 | App pure-logic unit tests | **Yes** — real JVM | 66/66 pass |
 | Android UI compilation | No — no Android SDK in this environment | Deferred to CI |
 | Lint / static analysis | No | Deferred to CI |
@@ -24,7 +24,7 @@ $ ./tools/jvm-verify/verify.sh
 == compiling core tests
 == compiling app pure logic (Android-free sources only)
 == running tests
-Tests run: 472, Passed: 472, Failed: 0, Skipped: 0
+Tests run: 474, Passed: 474, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -238,7 +238,7 @@ regressions.
 
 ### 3.6c4 The real transport and the agent turn
 
-`LayaTransportTest` (11) and `LayaAgentTest` (13) run against a **loopback `HttpServer`**, so
+`LayaTransportTest` (12) and `LayaAgentTest` (13) run against a **loopback `HttpServer`**, so
 `LayaUrlTransport` performs real sockets, real headers and real bodies rather than being reviewed.
 
 | Case | Result |
@@ -252,7 +252,10 @@ regressions.
 | A hanging server becomes a `Timeout` in under 2.5 s | PASS |
 | A 400 keeps the server's own `detail` verbatim | PASS |
 | The captured prediction travels over a socket, decodes, and is still refused | PASS |
-| A 401 leaves the client `DEGRADED`, not `CONNECTED` | PASS |
+| A 401 leaves the client `UNAUTHORISED`, not `CONNECTED` | PASS |
+| An unauthenticated `/health` 200 cannot launder a refused token back to connected | PASS |
+| A POST error body survives (no fixed-length streaming mode) | PASS |
+| A refused connection reports `DEGRADED`, not "never reached" | PASS |
 | Only a real `/health` upgrades the state to `CONNECTED` | PASS |
 | Unconfigured vs unreachable produce different sentences | PASS |
 | A 422 surfaces the server's precise reason | PASS |
