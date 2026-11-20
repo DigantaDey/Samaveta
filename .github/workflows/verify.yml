@@ -82,6 +82,10 @@ jobs:
           grep -E "^(e: |.*FAILED|.*error: |Caused by: |> Task .* FAILED)" core-test.log \
             | head -n 40 | while IFS= read -r line; do echo "::error::$line"; done
 
+      - name: Report the executed test count
+        if: always()
+        run: python3 tools/ci/test-summary.py "core unit tests" core/build/test-results/test
+
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
@@ -104,11 +108,23 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install required SDK platform
-        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      # GitHub's ubuntu runners ship the Android command-line tools and SDK preinstalled; only the
+      # exact platform/build-tools versions need adding. A third-party setup action is avoided here
+      # because its failure is opaque (a bare exit code), which is the opposite of what CI is for.
+      - name: Install the required Android SDK platform
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$SDK" ] || [ ! -d "$SDK/cmdline-tools/latest/bin" ]; then
+            echo "::error::No Android SDK found. ANDROID_SDK_ROOT=$SDK"
+            ls -la "${ANDROID_SDK_ROOT:-/nonexistent}" 2>/dev/null || true
+            exit 1
+          fi
+          echo "Android SDK: $SDK"
+          export PATH="$SDK/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+          echo "--- installed:"; ls "$SDK/platforms" "$SDK/build-tools"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -149,6 +165,10 @@ jobs:
           grep -E "FAILED|AssertionError|Exception" unit.log | head -n 60 \
             | while IFS= read -r line; do echo "::error::$line"; done
 
+      - name: Report the executed test count
+        if: always()
+        run: python3 tools/ci/test-summary.py ":app unit tests" app/build/test-results/testDebugUnitTest
+
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace --console=plain 2>&1 | tee assemble.log
 
@@ -158,8 +178,11 @@ jobs:
           grep -E "^(e: |.*error: |.*FAILED|Caused by: )" assemble.log | head -n 60 \
             | while IFS= read -r line; do echo "::error::$line"; done
 
+      # Proves the debug APK exists even when a later step in this job fails, and makes the artifact
+      # a success condition rather than a best-effort extra.
       - name: Upload APK
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: samaveta-debug-apk
           path: app/build/outputs/apk/debug/*.apk
@@ -175,10 +198,7 @@ jobs:
             app/build/reports/
             app/build/outputs/lint-results-debug.html
             app/build/outputs/lint-results-debug.txt
-            compile.log
-            lint.log
-            unit.log
-            assemble.log
+            *.log
           if-no-files-found: warn
           retention-days: 14
 
@@ -253,11 +273,23 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install required SDK platform
-        run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+      # GitHub's ubuntu runners ship the Android command-line tools and SDK preinstalled; only the
+      # exact platform/build-tools versions need adding. A third-party setup action is avoided here
+      # because its failure is opaque (a bare exit code), which is the opposite of what CI is for.
+      - name: Install the required Android SDK platform
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$SDK" ] || [ ! -d "$SDK/cmdline-tools/latest/bin" ]; then
+            echo "::error::No Android SDK found. ANDROID_SDK_ROOT=$SDK"
+            ls -la "${ANDROID_SDK_ROOT:-/nonexistent}" 2>/dev/null || true
+            exit 1
+          fi
+          echo "Android SDK: $SDK"
+          export PATH="$SDK/cmdline-tools/latest/bin:$PATH"
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
+          echo "--- installed:"; ls "$SDK/platforms" "$SDK/build-tools"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
