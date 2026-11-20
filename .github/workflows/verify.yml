@@ -164,17 +164,27 @@ jobs:
           set -euo pipefail
           # AGP writes the text report under reports/ for a failing run and outputs/ for a passing
           # one; search instead of assuming, so the step cannot itself become a false negative.
-          REPORT=$(find app/build -name 'lint-results-debug.txt' -o -name 'lint-results*.txt' 2>/dev/null | head -n 1 || true)
-          if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
-            echo "--- $REPORT"
-            echo "--- findings by issue id"
-            grep -oE '\[[A-Za-z]+\]' "$REPORT" | sort | uniq -c | sort -rn || true
-            echo "--- report (first 150 lines)"
-            head -n 150 "$REPORT" | while IFS= read -r line; do echo "::error::$line"; done
-          else
+          #
+          # GitHub caps a step at 10 annotations, so the findings are compressed: one annotation per
+          # issue id with its count and first location, plus one annotation listing the raw
+          # `file:line: Error: message [Id]` lines. Printing 150 lines of the report did not work —
+          # the report leads with the explanation prose for the first issue.
+          REPORT=$(find app/build -name 'lint-results-debug.txt' 2>/dev/null | head -n 1 || true)
+          if [ -z "$REPORT" ]; then
             echo "::error::no lint-results-debug.txt under app/build; listing what exists:"
-            find app/build -name 'lint*' -maxdepth 4 2>/dev/null | head -20 | while IFS= read -r l; do echo "::error::$l"; done
+            find app/build -name 'lint*' 2>/dev/null | head -20 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 0
           fi
+          FINDINGS=$(grep -E '^[^ ].*:[0-9]+: (Error|Warning): ' "$REPORT" || true)
+          echo "--- total: $(printf '%s\n' "$FINDINGS" | grep -c . ) finding(s)"
+          echo "--- raw findings:"
+          printf '%s\n' "$FINDINGS" | head -n 40
+          for id in $(printf '%s\n' "$FINDINGS" | grep -oE '\[[A-Za-z]+\]$' | sort | uniq -c | sort -rn | awk '{print $2}' | tr -d '[]'); do
+            count=$(printf '%s\n' "$FINDINGS" | grep -c "\[$id\]$" || true)
+            first=$(printf '%s\n' "$FINDINGS" | grep "\[$id\]$" | head -n 1)
+            echo "::error::[$id] x$count — $first"
+          done
+          echo "::error::full list — $(printf '%s\n' "$FINDINGS" | head -n 40 | tr '\n' '|')"
           grep -E "^> Task .* FAILED|^\* What went wrong" -A3 lint.log | head -n 40 \
             | while IFS= read -r line; do echo "::error::$line"; done
 
