@@ -73,7 +73,10 @@ if [[ -z "$STDLIB_JAR" ]]; then
   exit 1
 fi
 
-APP_SOURCES=$(find app/src/main -name 'ModelDownloader.kt' -print)
+# Only sources with no Android imports can be compiled here; the list grows as pure-logic app code
+# (feed parsing, formatting, view-model reducers) is added. Anything needing the Android SDK is
+# built by CI instead.
+APP_SOURCES=$(find app/src/main \( -name 'ModelDownloader.kt' -o -name 'FeedParser.kt' \) -print)
 APP_TEST_SOURCES=$(find app/src/test -name '*.kt' -print 2>/dev/null || true)
 if [[ -n "$APP_SOURCES" && -n "$APP_TEST_SOURCES" ]]; then
   echo "== compiling app pure logic (Android-free sources only)"
@@ -91,7 +94,7 @@ if [[ -n "$APP_SOURCES" && -n "$APP_TEST_SOURCES" ]]; then
       -cp "$OUT_DIR/main:$OUT_DIR/shim" -d "$OUT_DIR/app"
     "$KOTLINC" "${JDK_HOME_ARG[@]}" -nowarn $APP_TEST_SOURCES \
       -cp "$OUT_DIR/shim:$OUT_DIR/main:$OUT_DIR/app" -d "$OUT_DIR/app-test"
-    APP_ROOTS="com.samaveta.android.models"
+    APP_ROOTS="com.samaveta.android.models com.samaveta.android.intelligence"
   fi
 fi
 
