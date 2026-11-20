@@ -17,8 +17,10 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | LAYA-02 | Client: timeout, bounded retry, admission, error taxonomy | TESTED | `LayaV1Client.kt` | 422 never retried; 503 retried once; state only CONNECTED after a real call |
 | LAYA-03 | Strict response decoding (reject whole, never partially trust) | TESTED | `LayaV1Codec.kt` | 10 rejection cases |
 | LAYA-04 | Deterministic answer policy (abstention, truncation, floors) | TESTED | `LayaQuestions.kt` | model cannot remove mandatory confirmation |
-| LAYA-05 | Connection to a live `laya-serve` | **BLOCKED** | — | No server deployed here; LAYA's Java SDK has no Android support yet |
-| LAYA-06 | PROPOSED planner contract | SUPERSEDED | `core/.../laya/LayaContract.kt` | Not LAYA's interface; wired to nothing |
+| LAYA-05 | Transport/codec against a real `laya-serve` | TESTED | `core/src/test/resources/laya-live/` | health, route, 400, 422×2, 500 captured live; `LayaLiveContractTest` (10) |
+| LAYA-06a | A successful prediction end to end | **BLOCKED** | — | Checkpoint download blocked here; no 200 ever captured |
+| LAYA-06b | `laya-java` on-device (offline LAYA) | **BLOCKED** | — | Upstream: "Not implemented yet: … Android" |
+| LAYA-07 | PROPOSED planner contract | SUPERSEDED | `core/.../laya/LayaContract.kt` | Not LAYA's interface; wired to nothing |
 | MOD-01 | Model Registry with full metadata | TESTED | `model/ModelDescriptor.kt`, `ModelAdmission.kt` | invariant tests |
 | MOD-02 | Admission: RAM/storage/accelerator/ABI/integrity | TESTED | `ModelRegistry.evaluate` | incl. 3GB device refusal |
 | MOD-03 | Secure download with SHA-256 gate | TESTED | `app/.../ModelDownloader.kt` | `ModelDownloaderTest` (11) |
@@ -56,7 +58,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | SEC-05 | No false success | TESTED | `ActionVerifier` | type-enforced |
 | SEC-06 | Encrypted storage via Keystore | NOT_STARTED | — | dependency declared only |
 | CAP-01 | Notification/messaging/calendar/files capabilities | NOT_STARTED | — | authorization layer ready |
-| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 414/414 |
+| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 424/424 |
 | QLT-02 | Lint + static analysis in CI | IMPLEMENTED | CI `lintDebug` | unrun here |
 | QLT-03 | Instrumentation / UI tests | NOT_STARTED | — | — |
 | QLT-04 | Physical-device verification | NOT_STARTED | — | **blocks any VERIFIED status** |

@@ -1,6 +1,6 @@
 # LAYA INTEGRATION
 
-**Status: contract RECONCILED against LAYA's published repository. Adapter + codec IMPLEMENTED and TESTED. End-to-end connection NOT yet verified against a running server, so the integration must be shown as `NEVER_REACHED`/`DEGRADED`, never "connected".**
+**Status: contract RECONCILED against LAYA's published repository, and the transport/codec verified against a REAL `laya-serve` process (health, routing and every rejection shape). A successful prediction has NOT been captured, because model weights could not be downloaded in this environment — so the integration must be shown as connected only after `/health` says so, and must never be described as end-to-end verified.**
 
 Source of truth for everything below: [`github.com/NandhaKishorM/laya`](https://github.com/NandhaKishorM/laya) —
 `docs/http-api.md`, `sdk/typescript/src/types.ts`, `sdk/typescript/src/validation.ts`,
@@ -133,11 +133,28 @@ stricter in one respect that matters for SAMAVETA: a rejected payload becomes
 |---|---|
 | `LAYA_API_KEY` set, unauthenticated `/health` | Only `{"status":"ok"}` decodes; `loaded` is empty and is not treated as an error |
 | `503` from the admission limiter | `LayaV1Failure.Overloaded`, retried **once** |
-| `5xx` | `ServerError`, retried **once** |
-| `422` with `{"detail": [...]}` or `{"error": {...}}` | `Rejected(status, code, detail)` — the field that was wrong is shown; **never retried** |
+| `5xx` | `ServerError`, **not** retried (see the note in §6.1) |
+| `422` with `{"detail": "..."}` (a plain string — observed live) or `{"error": {...}}` | `Rejected(status, code, detail)` — the field that was wrong is shown; **never retried** |
+| `400` malformed body | `Rejected` with the server's message |
+| `500 {"detail":"inference failed"}` | `ServerError`. **Not retried**: observed for a missing checkpoint, so it is deterministic |
 | Connection refused / DNS | `Unreachable`; client state becomes `DEGRADED` |
 | Timeout | `Timeout`; **never retried** — the server may have run the inference |
 | Idle unload (`loaded: []`) | Normal; only affects the diagnostics display |
+
+### 6.1 What the live run changed
+
+`laya-serve` was run locally and probed. Three findings changed the implementation:
+
+1. **`422` carries `detail` as a plain string**, not an object. The decoder handles both, but the
+   string form is the real one, and it names the offending model and the valid alternatives.
+2. **`500` is deterministic.** A missing checkpoint, a broken graph or a missing runtime produces
+   `{"detail":"inference failed"}` on every attempt. Retrying it — which the first implementation did
+   — multiplies latency and log noise on a deployment that cannot work. Only `503` (the admission
+   limiter) and dropped connections are retried now.
+3. **The 8192-token ceiling is real and server-enforced**, matching `LayaPredictRequest.MAX_TOKEN_BUDGET`.
+
+Captured payloads live in `core/src/test/resources/laya-live/` with a provenance README and are
+asserted by `LayaLiveContractTest`.
 
 Endpoint policy: **https required**, with an explicit loopback exception (`127.0.0.1`, `localhost`,
 `[::1]`) for an on-device `laya-serve` in development. Plaintext to a remote host is refused at
@@ -151,7 +168,7 @@ Connection state is `NOT_CONFIGURED` → `NEVER_REACHED` → `CONNECTED` (only a
 | Option | Requires | Notes |
 |---|---|---|
 | Remote `laya-serve` over HTTPS | A server the user or operator runs | Default assumption; needs a network connection, so **not** local-first |
-| Loopback `/local/` server on the same device | Termux or a companion process | Only realistic route to genuinely offline LAYA on Android |
+| Loopback server on the same device | Termux or a companion process | Only realistic route to genuinely offline LAYA on Android. **This is what was actually exercised**: `LAYA_PRELOAD=0 python -m laya.serve` on `127.0.0.1:8321` |
 | `laya-java` (ONNX Runtime) in-process | `laya.onnx` + checkpoint on device | Upstream says **"Not implemented yet: … Android."** Blocked until upstream supports it; `onnxruntime-android` exists, but shipping an unsupported path would be a claim we cannot back |
 
 LAYA is an **external dependency**, so "offline operation" for the agent narrative cannot be
@@ -160,8 +177,10 @@ over. SAMAVETA's own local behaviour (models, memory, browser policy, persistenc
 
 ## 8. What is still missing
 
-- [ ] Run the client against a real `laya-serve` and record `LayaHealth` output (proves transport,
-      not just codec).
+- [x] Run against a real `laya-serve`: health, routing and all rejection shapes captured.
+- [ ] Capture a **successful prediction** (200). Blocked here: Hugging Face is unreachable, so no
+      checkpoint could be loaded and every `/v1/systemone` returned 500. This is the single remaining
+      verification gap, and it is the one that would prove the answer decoder end to end.
 - [ ] Wire `AppModule` to construct a configured `LayaV1Client` from user settings, with the key in
       the Android Keystore (never in prefs, never in the APK).
 - [ ] Replace the placeholder `send` composition in `AgentScreen` with `LayaQuestions.read()` output.
