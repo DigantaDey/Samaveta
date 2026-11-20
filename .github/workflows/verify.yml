@@ -83,8 +83,12 @@ jobs:
       - name: Summarise failures as annotations
         if: failure()
         run: |
+          # A Gradle configuration error prints no `e:` or `error:` line at all — its only signal is
+          # the "What went wrong" block, so that is captured as well.
           grep -E "^(e: |.*FAILED|.*error: |Caused by: |> Task .* FAILED)" core-test.log \
-            | head -n 40 | while IFS= read -r line; do echo "::error::$line"; done
+            | head -n 30 | while IFS= read -r line; do echo "::error::$line"; done
+          grep -E "^\* What went wrong:" -A6 core-test.log | head -n 20 \
+            | while IFS= read -r line; do echo "::error::$line"; done
 
       - name: Report the executed test count
         if: always()
@@ -146,7 +150,10 @@ jobs:
       - name: Summarise compile failures as annotations
         if: failure()
         run: |
-          grep -E "^(e: |.*error: |.*FAILED|Caused by: )" compile.log | head -n 60 \
+          grep -E "^(e: |.*error: |.*FAILED|Caused by: )" compile.log | head -n 40 \
+            | while IFS= read -r line; do echo "::error::$line"; done
+          # A configuration-time failure has no `e:` line; its only signal is this block.
+          grep -E "^\* What went wrong:" -A6 compile.log | head -n 20 \
             | while IFS= read -r line; do echo "::error::$line"; done
 
       # Lint runs with warningsAsErrors, so this step fails on new lint debt rather than
