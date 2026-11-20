@@ -45,6 +45,8 @@ env:
     -Dorg.gradle.daemon=false
     -Dkotlin.daemon.jvmargs=-Xmx2g
     -Dfile.encoding=UTF-8
+    -Dorg.gradle.configuration-cache=false
+    -Dorg.gradle.caching=false
 
 jobs:
   domain-tests:
@@ -74,7 +76,7 @@ jobs:
 
       # The core module is pure Kotlin, so its logic is tested without the Android toolchain.
       - name: Run core unit tests
-        run: ./gradlew :core:test --stacktrace --console=plain 2>&1 | tee core-test.log
+        run: ./gradlew :core:test --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee core-test.log
 
       - name: Summarise failures as annotations
         if: failure()
@@ -84,7 +86,7 @@ jobs:
 
       - name: Report the executed test count
         if: always()
-        run: python3 tools/ci/test-summary.py "core unit tests" core/build/test-results/test
+        run: python3 tools/ci/test-summary.py "core unit tests" core/build/test-results/test core/build/reports/tests/test
 
       - name: Upload test report
         if: always()
@@ -135,7 +137,7 @@ jobs:
         run: python3 tools/check/android-preflight.py
 
       - name: Compile the Android app
-        run: ./gradlew :app:compileDebugKotlin --stacktrace --console=plain 2>&1 | tee compile.log
+        run: ./gradlew :app:compileDebugKotlin --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee compile.log
 
       - name: Summarise compile failures as annotations
         if: failure()
@@ -146,7 +148,7 @@ jobs:
       # Lint runs with warningsAsErrors, so this step fails on new lint debt rather than
       # accumulating it silently.
       - name: Lint
-        run: ./gradlew :app:lintDebug --stacktrace --console=plain 2>&1 | tee lint.log
+        run: ./gradlew :app:lintDebug --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee lint.log
 
       - name: Summarise lint failures as annotations
         if: failure()
@@ -157,7 +159,7 @@ jobs:
             | while IFS= read -r line; do echo "::error::$line"; done
 
       - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace --console=plain 2>&1 | tee unit.log
+        run: ./gradlew :app:testDebugUnitTest --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee unit.log
 
       - name: Summarise unit-test failures as annotations
         if: failure()
@@ -170,7 +172,22 @@ jobs:
         run: python3 tools/ci/test-summary.py ":app unit tests" app/build/test-results/testDebugUnitTest
 
       - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace --console=plain 2>&1 | tee assemble.log
+        run: ./gradlew :app:assembleDebug --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee assemble.log
+
+      # A task can report success while producing nothing (a stale cache entry, a skipped variant).
+      # The APK's existence is part of the contract, so it is asserted rather than assumed.
+      - name: Verify the debug APK exists and is well formed
+        run: |
+          set -euo pipefail
+          APK=$(ls app/build/outputs/apk/debug/*.apk 2>/dev/null | head -n 1 || true)
+          if [ -z "$APK" ]; then
+            echo "::error::assembleDebug succeeded but produced no APK"
+            find app/build/outputs -name '*.apk' -o -name 'output-metadata.json' | head -5
+            exit 1
+          fi
+          echo "APK: $APK ($(stat -c%s "$APK") bytes)"
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          "$SDK/build-tools/35.0.0/aapt2" dump badging "$APK" | head -5
 
       - name: Summarise assemble failures as annotations
         if: failure()
@@ -316,7 +333,7 @@ jobs:
           SAMAVETA_KEYSTORE_PASSWORD: ${{ secrets.SAMAVETA_KEYSTORE_PASSWORD }}
           SAMAVETA_KEY_ALIAS: ${{ secrets.SAMAVETA_KEY_ALIAS }}
           SAMAVETA_KEY_PASSWORD: ${{ secrets.SAMAVETA_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease --stacktrace --console=plain 2>&1 | tee release.log
+        run: ./gradlew :app:assembleRelease --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee release.log
 
       - name: Summarise release-build failures as annotations
         if: failure()
