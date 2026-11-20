@@ -17,6 +17,10 @@ import com.samaveta.android.core.device.DeviceProfile
 import com.samaveta.android.core.laya.LayaAdapter
 import com.samaveta.android.core.laya.LayaConfig
 import com.samaveta.android.core.laya.LayaIntegrationState
+import com.samaveta.android.core.laya.v1.LayaAgent
+import com.samaveta.android.core.laya.v1.LayaUrlTransport
+import com.samaveta.android.core.laya.v1.LayaV1Client
+import com.samaveta.android.data.LayaSettingsRepository
 import com.samaveta.android.models.AndroidDeviceProfileProvider
 import com.samaveta.android.models.AndroidRuntimeProbe
 import dagger.Module
@@ -77,6 +81,39 @@ object AppModule {
     @Singleton
     @Named("layaState")
     fun provideLayaState(@Named("laya") adapter: LayaAdapter): LayaIntegrationState = adapter.state
+
+    /**
+     * The real LAYA v1 client.
+     *
+     * Constructed from what the user actually stored — address from encrypted preferences, bearer
+     * token from the Keystore-backed file — and with the real `LayaUrlTransport`, not a stand-in.
+     * When nothing is stored this yields `NOT_CONFIGURED`, which is the honest shipped default:
+     * `LayaAgent` then answers "set its address in Settings" instead of pretending to plan.
+     *
+     * A bad stored value cannot be allowed to crash DI: a config that fails validation collapses to
+     * NOT_CONFIGURED, and the Settings screen is where the user sees and repairs it.
+     */
+    @Provides
+    @Singleton
+    fun provideLayaV1Client(settings: LayaSettingsRepository): LayaV1Client {
+        val config = try {
+            settings.config()
+        } catch (invalid: IllegalArgumentException) {
+            LayaV1Config.NOT_CONFIGURED
+        }
+        return LayaV1Client(
+            config = config,
+            transport = if (config.isConfigured) LayaUrlTransport(apiKey = config.apiKey) else null,
+        )
+    }
+
+    /**
+     * The agent turn. `canExecute = false` is a statement of fact, not a placeholder: no capability
+     * executor exists in this build, so every proposal must say nothing ran.
+     */
+    @Provides
+    @Singleton
+    fun provideLayaAgent(client: LayaV1Client): LayaAgent = LayaAgent(client = client, canExecute = false)
 
     @Provides
     @Singleton

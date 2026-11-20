@@ -20,6 +20,10 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | LAYA-05 | Transport/codec against a real `laya-serve` | TESTED | `core/src/test/resources/laya-live/` | Replayed from a running server: prediction, batch, health, 400, 401, 422×2, 500; `LayaLiveContractTest` (15) |
 | LAYA-06a | A successful prediction end to end | TESTED (fixture checkpoint only) | `core/.../laya/v1/LayaQuestions.kt` | A real `200` was captured from LAYA's offline fixture server and is decoded, gated and refused correctly. Quality on real weights remains unproven. |
 | LAYA-06c | Prediction quality on real LAYA weights | **BLOCKED** | — | Weight download unreachable from this environment |
+| LAYA-08 | Production HTTP transport | TESTED | `laya/v1/LayaUrlTransport.kt` | `LayaTransportTest` (11) against a loopback socket: no redirects, byte cap, timeout, bearer header, https-only |
+| LAYA-09 | Agent turn with honest outcomes | TESTED | `laya/v1/LayaAgent.kt` | `LayaAgentTest` (13): proposal/clarify/refusal/unavailable, never claims execution |
+| LAYA-10 | Endpoint + token configuration | IMPLEMENTED (not compiled) | `app/data/LayaSettingsRepository.kt`, Settings screen | Token in Keystore-backed encrypted prefs; https enforced; not run on a device |
+| LAYA-11 | App wired to the v1 client | IMPLEMENTED (not compiled) | `di/AppModule.kt`, `AgentScreen.kt` | Real `LayaUrlTransport`; Android layer still uncompiled |
 | LAYA-06b | `laya-java` on-device (offline LAYA) | **BLOCKED** | — | Upstream: "Not implemented yet: … Android" |
 | LAYA-07 | PROPOSED planner contract | SUPERSEDED | `core/.../laya/LayaContract.kt` | Not LAYA's interface; wired to nothing |
 | MOD-01 | Model Registry with full metadata | TESTED | `model/ModelDescriptor.kt`, `ModelAdmission.kt` | invariant tests |
@@ -60,7 +64,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | SEC-05 | No false success | TESTED | `ActionVerifier` | type-enforced |
 | SEC-06 | Encrypted storage via Keystore | NOT_STARTED | — | dependency declared only |
 | CAP-01 | Notification/messaging/calendar/files capabilities | NOT_STARTED | — | authorization layer ready |
-| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 448/448 |
+| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 472/472 |
 | QLT-02 | Lint + static analysis in CI | IMPLEMENTED | CI `lintDebug` | unrun here |
 | QLT-03 | Instrumentation / UI tests | NOT_STARTED | — | — |
 | QLT-04 | Physical-device verification | NOT_STARTED | — | **blocks any VERIFIED status** |

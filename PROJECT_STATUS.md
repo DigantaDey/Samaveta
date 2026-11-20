@@ -3,7 +3,7 @@
 **Product:** SAMAVETA (समवेत) — *Intelligence, United.*
 **First major release:** SAMAVETA 1.0 — **SANTOOR**
 **Last updated:** 2026-11-20
-**Build state:** `core` + app pure-logic **compile and pass 448/448 unit tests** (executed locally).
+**Build state:** `core` + app pure-logic **compile and pass 472/472 unit tests** (executed locally).
 Android UI layer: **written, not yet compiled** — see *Verification environment* below.
 
 ---
@@ -18,7 +18,7 @@ What is real and proven:
 - A pure-Kotlin `core` module containing the security, LAYA-integration, memory, information-intelligence,
   device-health, model-admission, browser-policy and action-orchestration logic. Every one of
   those subsystems has executed unit tests
-  (448 tests, all passing) run with a real JVM.
+  (472 tests, all passing) run with a real JVM.
 - Android project scaffolding that configures the toolchain correctly (AGP 8.7.3 / Kotlin 2.0.21 /
   Compose BOM 2024.12.01 / Hilt / Room / DataStore / WorkManager, minSdk 28, arm64-only).
 - A completed design system and brand identity, including the SANTOOR release mark.
@@ -29,6 +29,11 @@ What is **not** real yet, and must not be described as working:
 - No model runtime is integrated. No model is downloadable. `Models` is empty by design.
 - No voice, vision/OCR or Android capability *integration* exists; the browser and capability
   policy layers are tested, but nothing is connected to a WebView, an SMS manager or a listener.
+- A **real HTTP transport** (`LayaUrlTransport`) and a **real agent turn** (`LayaAgent`), both
+  exercised against a live socket in `LayaTransportTest` (11) and `LayaAgentTest` (13). The app now
+  constructs the client from what the user stored, with the bearer token in the Keystore, and the
+  Agent screen shows the engine's own sentences. No capability executor exists, so every proposal
+  says nothing was executed.
 - LAYA's **contract has been reconciled** against LAYA's published repository and exercised against a
   **running `laya-serve`**: real `200` prediction and batch payloads, plus its health, `400`, `401`,
   `422` and `500` responses, are captured in `core/src/test/resources/laya-live/` and replayed by
@@ -46,7 +51,7 @@ JDK or Android SDK is preinstalled.
 
 To avoid simply *asserting* that code works, the project carries its own verification harness
 (`tools/jvm-verify/`) which compiles the modules with a standalone Kotlin compiler and executes the
-JUnit-style tests. That is the source of the 448/448 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
+JUnit-style tests. That is the source of the 472/472 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
 
 **Consequence:** the Android layer's correctness is *reviewed*, not *executed*, in this environment.
 CI (`.github/workflows/verify.yml`) is the mechanism that closes that gap — it builds, lints and
@@ -58,7 +63,7 @@ unit-tests the Android module and produces a debug APK.
 |---|---|---|---|
 | 0 | Repository + feasibility audit | **VERIFIED** | `docs/DECISIONS.md` D-001…D-003 |
 | 1 | Native foundation (structure, design system, theme, DI, CI) | **IMPLEMENTED** (UI not compiled) | `app/src/main/kotlin/.../ui/design`, CI workflow |
-| 2 | LAYA integration | **TESTED against a real `laya-serve` on its offline fixture checkpoint**; quality on real weights unproven | `LayaV1Test` (44), `LayaLiveContractTest` (15); `LAYA_INTEGRATION.md` |
+| 2 | LAYA integration | **TESTED against a real `laya-serve` on its offline fixture checkpoint**, plus a real transport and agent turn; quality on real weights unproven | `LayaV1Test` (44), `LayaLiveContractTest` (15), `LayaTransportTest` (11), `LayaAgentTest` (13); `LAYA_INTEGRATION.md` |
 | 3 | Model infrastructure | **PARTIAL**: registry, admission, downloader and the 27-model catalog TESTED; no runtime, nothing downloadable | `ModelAdmission`, `ModelCatalog`, `ModelDownloaderTest` |
 | 4 | Visual perception (OCR/objects/VLM) | **NOT_STARTED** | — |
 | 5 | Voice (ASR/TTS/Voice Lab/speaker ID) | **NOT_STARTED** | — |
@@ -78,7 +83,7 @@ Status vocabulary is the directive's: `NOT_STARTED`, `IN_PROGRESS`, `IMPLEMENTED
 Executed locally by `tools/jvm-verify/verify.sh`:
 
 ```
-Tests run: 448, Passed: 448, Failed: 0, Skipped: 0
+Tests run: 472, Passed: 472, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -104,6 +109,8 @@ VERDICT: PASS
 | `PlanGateTest` | 13 | Composition of device validation and authority validation |
 | `LayaV1Test` | 44 | The real LAYA contract: encoding, strict decoding, retry policy, answer policy |
 | `LayaLiveContractTest` | 15 | Payloads captured from a running `laya-serve`: prediction, batch, health, 401 |
+| `LayaTransportTest` | 11 | The real HTTP transport over a loopback socket: headers, no redirects, byte cap, timeout, error bodies |
+| `LayaAgentTest` | 13 | Utterance → proposal/clarify/refusal over a real socket; nothing claims to have executed |
 | `ModelCatalogTest` | 17 | The 27 supplied models: no invented hashes, licence gates, estimate provenance, refusal over guessing |
 
 These are *unit* tests. There are **no** instrumentation tests, **no** UI tests and **no**
@@ -137,6 +144,7 @@ physical-device results yet; `TEST_REPORT.md` records that gap explicitly.
 2. Integrate one real runtime (LiteRT-LM) behind `ModelRuntime`, with a downloadable, checksummed
    small text model, then replace `Models` placeholder with a real manager screen.
 3. Implement persistence (Room) for memory, audit log and installed models.
-4. Stand up a `laya-serve` and run `LayaV1Client.health()` against it; wire `AppModule` and the
-   Agent screen to `LayaQuestions.read()`, keeping the API key in the Keystore.
+4. ~~Stand up a `laya-serve` and wire `AppModule` and the Agent screen to `LayaQuestions.read()`,
+   with the key in the Keystore.~~ **Done** (`LayaUrlTransport`, `LayaAgent`, `LayaSettingsRepository`).
+   Next: a capability executor behind `ActionPipeline` so a proposal can actually become an action.
 5. Only then: voice, perception, browser, capabilities — in that order.

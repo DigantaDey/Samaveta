@@ -187,8 +187,16 @@ over. SAMAVETA's own local behaviour (models, memory, browser policy, persistenc
       threshold in `LayaQuestions.Policy` is calibrated against real weights.
 - [ ] Fetch real LAYA weights (Hugging Face unreachable from this environment) and re-run the
       capture with `LAYA_PRELOAD=1` to produce a quality/calibration record.
-- [ ] Wire `AppModule` to construct a configured `LayaV1Client` from user settings, with the key in
-      the Android Keystore (never in prefs, never in the APK).
+- [x] Wire `AppModule` to construct a configured `LayaV1Client` from user settings, with the key in
+      the Android Keystore (never in prefs, never in the APK). `LayaSettingsRepository` stores the
+      address in `EncryptedSharedPreferences` with an AES-256-GCM Keystore master key; the Settings
+      screen edits it; `AppModule` builds the client with the real `LayaUrlTransport`. If the Keystore
+      is unavailable the repository refuses to store a token rather than falling back to plaintext.
+- [x] A real transport, executed rather than reviewed: `LayaUrlTransport` is `java.net`-only and
+      `LayaTransportTest` drives it over a loopback socket.
+- [ ] A capability executor behind `ActionPipeline`, so a `LayaAgent.Turn.Proposed` can become a real
+      action. Until then the agent's sentence is "... this build has no executor for that capability
+      yet", which is true.
 - [ ] Replace the placeholder `send` composition in `AgentScreen` with `LayaQuestions.read()` output.
 - [ ] Calibrate `Policy` floors on real utterances. The shipped defaults are conservative guesses,
       not measurements — they must be labelled as such in diagnostics until calibrated.

@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -33,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.samaveta.android.BuildConfig
 import com.samaveta.android.core.device.DeviceProfile
+import com.samaveta.android.data.LayaSettingsRepository
 import com.samaveta.android.data.PreferencesRepository
 import com.samaveta.android.core.laya.LayaIntegrationState
 import com.samaveta.android.ui.Destination
@@ -97,6 +100,52 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(Spacing.sm))
                 Text(state.layaExplanation, style = TypographyTokens.caption, color = colors.textSecondary)
+
+                Spacer(Modifier.height(Spacing.md))
+                LabeledField(
+                    label = "Server address",
+                    value = state.baseUrlDraft,
+                    placeholder = "https://192.0.2.10:8000",
+                    onChange = viewModel::setBaseUrlDraft,
+                )
+                Spacer(Modifier.height(Spacing.sm))
+                LabeledField(
+                    label = "Bearer token (optional, stored in the Keystore)",
+                    value = state.tokenDraft,
+                    placeholder = if (state.hasStoredToken) "A token is stored — type to replace it" else "Not set",
+                    onChange = viewModel::setTokenDraft,
+                    secret = true,
+                )
+                if (state.saveError != null) {
+                    Spacer(Modifier.height(Spacing.xs))
+                    Text(state.saveError!!, style = TypographyTokens.caption, color = colors.danger)
+                }
+                if (state.saveNotice != null) {
+                    Spacer(Modifier.height(Spacing.xs))
+                    Text(state.saveNotice!!, style = TypographyTokens.caption, color = colors.accent)
+                }
+                if (!state.secureStorageAvailable) {
+                    Spacer(Modifier.height(Spacing.xs))
+                    Text(
+                        "The Keystore is unavailable on this device, so the token would be stored unencrypted. " +
+                            "SAMAVETA will not save one in that state.",
+                        style = TypographyTokens.caption,
+                        color = colors.danger,
+                    )
+                }
+                Spacer(Modifier.height(Spacing.md))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AccentAction("Save", enabled = state.canSave, onClick = viewModel::save)
+                    Spacer(Modifier.width(Spacing.md))
+                    AccentAction("Clear", enabled = state.hasStoredConfig, onClick = viewModel::clear, danger = true)
+                }
+                Spacer(Modifier.height(Spacing.sm))
+                Text(
+                    "https is required; plaintext is allowed only for 127.0.0.1, where you run laya-serve yourself. " +
+                        "Saving an address does not connect anything: the status only changes after a real call succeeds.",
+                    style = TypographyTokens.caption,
+                    color = colors.textTertiary,
+                )
             }
 
             Spacer(Modifier.height(Spacing.lg))
@@ -210,6 +259,71 @@ private fun ThemeSelector(current: ThemeMode, onChange: (ThemeMode) -> Unit) {
 }
 
 @Composable
+private fun LabeledField(
+    label: String,
+    value: String,
+    placeholder: String,
+    onChange: (String) -> Unit,
+    secret: Boolean = false,
+) {
+    val colors = MaterialTheme.samaveta
+    Column(Modifier.fillMaxWidth()) {
+        Text(label, style = TypographyTokens.caption, color = colors.textSecondary)
+        Spacer(Modifier.height(Spacing.xxs))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.sm))
+                .background(colors.surfaceElevated)
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        ) {
+            if (value.isEmpty()) {
+                Text(placeholder, style = TypographyTokens.body, color = colors.textTertiary)
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onChange,
+                singleLine = true,
+                textStyle = TypographyTokens.body.copy(color = colors.textPrimary),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.accent),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = if (secret) {
+                        androidx.compose.ui.text.input.KeyboardType.Password
+                    } else {
+                        androidx.compose.ui.text.input.KeyboardType.Uri
+                    },
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccentAction(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    danger: Boolean = false,
+) {
+    val colors = MaterialTheme.samaveta
+    val tint = when {
+        !enabled -> colors.textTertiary
+        danger -> colors.danger
+        else -> colors.accent
+    }
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(Radius.sm))
+            .background(colors.surfaceElevated)
+            .clickable(enabled = enabled) { onClick() }
+            .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+    ) {
+        Text(label, style = TypographyTokens.bodyEmphasis, color = tint)
+    }
+}
+
+@Composable
 private fun BrandBlock() {
     val colors = MaterialTheme.samaveta
     SurfaceBlock(Modifier.padding(horizontal = Spacing.gutter)) {
@@ -265,19 +379,38 @@ data class SettingsUiState(
     val automationPaused: Boolean = false,
     val emergencyStop: Boolean = false,
     val deviceLine: String = "",
+    val baseUrlDraft: String = "",
+    val tokenDraft: String = "",
+    val hasStoredToken: Boolean = false,
+    val hasStoredConfig: Boolean = false,
+    val secureStorageAvailable: Boolean = true,
+    val saveError: String? = null,
+    val saveNotice: String? = null,
 ) {
+    val canSave: Boolean get() = saveError == null && (baseUrlDraft.isNotBlank() || hasStoredConfig)
+
+    /**
+     * What the status line means, in the v1 vocabulary.
+     *
+     * `VERIFIED` here means *a call to this server succeeded*, which is the only thing SAMAVETA can
+     * observe. It deliberately does not claim the decisions are good: the engine's quality has not
+     * been measured on real weights, and `KNOWN_LIMITATIONS.md` says so.
+     */
     val layaExplanation: String
         get() = when (layaState) {
             LayaIntegrationState.NOT_CONFIGURED ->
-                "No production interface has been supplied by LAYA's developer. Autonomous planning and model routing are therefore unavailable in this build. Nothing pretends otherwise."
+                "No decision-engine address is set, so task routing is unavailable. Ask the agent anything and it " +
+                    "will say exactly that. The rest of the app keeps working."
             LayaIntegrationState.CONFIGURED_UNVERIFIED ->
-                "Configured, but not yet verified against the real engine. Treat decisions as unverified."
+                "An address is set but no call has succeeded yet. Status changes only after a real response."
             LayaIntegrationState.VERIFIED ->
-                "Connected and verified. Plans are validated against this device before execution."
+                "A call to this server succeeded. SAMAVETA applies its own floors and refusal rules to every " +
+                    "answer; the engine's decision quality itself has not been measured on real weights."
             LayaIntegrationState.DEGRADED ->
-                "Configured but failing health checks. Task execution is suspended."
+                "Configured but the last call failed. The agent will report the engine's own words rather than " +
+                    "guessing."
             LayaIntegrationState.MOCK_TEST_ONLY ->
-                "Development build: a test double is answering. Decisions are simulated and must not be trusted."
+                "Test build: a test double is answering. Decisions are simulated and must not be trusted."
         }
 }
 
@@ -285,6 +418,7 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     @Named("layaState") layaState: LayaIntegrationState,
     private val preferences: PreferencesRepository,
+    private val layaSettings: LayaSettingsRepository,
     private val device: DeviceProfile,
 ) : ViewModel() {
 
@@ -292,6 +426,10 @@ class SettingsViewModel @Inject constructor(
         SettingsUiState(
             layaState = layaState,
             deviceLine = "${device.manufacturer} ${device.model} · ${device.totalRamMb} MB RAM · API ${device.androidApiLevel}",
+            baseUrlDraft = layaSettings.storedBaseUrl().orEmpty(),
+            hasStoredToken = layaSettings.hasStoredToken(),
+            hasStoredConfig = layaSettings.storedBaseUrl() != null,
+            secureStorageAvailable = layaSettings.isSecureStorageAvailable(),
         ),
     )
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -315,5 +453,52 @@ class SettingsViewModel @Inject constructor(
 
     fun setEmergencyStop(engaged: Boolean) {
         viewModelScope.launch { preferences.setEmergencyStop(engaged) }
+    }
+
+    fun setBaseUrlDraft(value: String) {
+        _state.value = _state.value.copy(baseUrlDraft = value, saveError = null, saveNotice = null)
+    }
+
+    fun setTokenDraft(value: String) {
+        _state.value = _state.value.copy(tokenDraft = value, saveError = null, saveNotice = null)
+    }
+
+    /**
+     * Saves the endpoint. A rejected address is shown against the field and the previous value stays
+     * in effect — the app never half-applies a configuration.
+     */
+    fun save() {
+        val state = _state.value
+        if (!state.secureStorageAvailable && (state.tokenDraft.isNotBlank() || state.hasStoredToken)) {
+            _state.value = state.copy(saveError = "The Keystore is unavailable, so a token cannot be stored safely.")
+            return
+        }
+        val problem = layaSettings.save(state.baseUrlDraft, state.tokenDraft)
+        _state.value = _state.value.copy(
+            saveError = problem,
+            saveNotice = if (problem == null) "Saved. The new address is used from the next message." else null,
+            tokenDraft = if (problem == null) "" else _state.value.tokenDraft,
+            hasStoredToken = layaSettings.hasStoredToken(),
+            hasStoredConfig = layaSettings.storedBaseUrl() != null,
+            // Saving is not connecting: the pill returns to "not yet reached" until a call succeeds.
+            layaState = if (problem == null && layaSettings.storedBaseUrl() != null) {
+                LayaIntegrationState.CONFIGURED_UNVERIFIED
+            } else {
+                _state.value.layaState
+            },
+        )
+    }
+
+    fun clear() {
+        layaSettings.clear()
+        _state.value = _state.value.copy(
+            baseUrlDraft = "",
+            tokenDraft = "",
+            hasStoredToken = false,
+            hasStoredConfig = false,
+            saveError = null,
+            saveNotice = "Cleared.",
+            layaState = LayaIntegrationState.NOT_CONFIGURED,
+        )
     }
 }

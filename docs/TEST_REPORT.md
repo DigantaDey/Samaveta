@@ -10,7 +10,7 @@
 
 | Area | Executed? | Result |
 |---|---|---|
-| `core` unit tests | **Yes** — real JVM | 382/382 pass |
+| `core` unit tests | **Yes** — real JVM | 406/406 pass |
 | App pure-logic unit tests | **Yes** — real JVM | 66/66 pass |
 | Android UI compilation | No — no Android SDK in this environment | Deferred to CI |
 | Lint / static analysis | No | Deferred to CI |
@@ -24,7 +24,7 @@ $ ./tools/jvm-verify/verify.sh
 == compiling core tests
 == compiling app pure logic (Android-free sources only)
 == running tests
-Tests run: 448, Passed: 448, Failed: 0, Skipped: 0
+Tests run: 472, Passed: 472, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -235,6 +235,31 @@ regressions.
 | Estimates are labelled `ESTIMATED`, context lengths `DECLARED`, no `MEASURED` anywhere | PASS |
 | Peak RAM always exceeds artifact size; the size estimate is MB not bytes | PASS |
 | Best pick is deterministic and returns null rather than a model that will not fit | PASS |
+
+### 3.6c4 The real transport and the agent turn
+
+`LayaTransportTest` (11) and `LayaAgentTest` (13) run against a **loopback `HttpServer`**, so
+`LayaUrlTransport` performs real sockets, real headers and real bodies rather than being reviewed.
+
+| Case | Result |
+|---|---|
+| POST carries method, body and `Authorization: Bearer …` | PASS |
+| No token configured means no header at all (not an empty one) | PASS |
+| A 302 is returned, never followed | PASS |
+| Plaintext to a remote host refused before connecting; loopback allowed | PASS |
+| `http://localhost.evil.example` refused (suffix spoofing) | PASS |
+| A 200 KB body under a 1 KB cap is discarded | PASS |
+| A hanging server becomes a `Timeout` in under 2.5 s | PASS |
+| A 400 keeps the server's own `detail` verbatim | PASS |
+| The captured prediction travels over a socket, decodes, and is still refused | PASS |
+| A 401 leaves the client `DEGRADED`, not `CONNECTED` | PASS |
+| Only a real `/health` upgrades the state to `CONNECTED` | PASS |
+| Unconfigured vs unreachable produce different sentences | PASS |
+| A 422 surfaces the server's precise reason | PASS |
+| A malformed 200 is refused, not parsed hopefully | PASS |
+| A confident answer becomes a proposal that says nothing was executed | PASS |
+| A model saying "no confirmation needed" cannot remove confirmation | PASS |
+| Whitespace is not sent to the engine | PASS |
 
 ### 3.6d Intelligence ingestion
 

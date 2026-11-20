@@ -6,7 +6,9 @@ stakeholder as working.
 ## Blocking (must be resolved before any release)
 
 1. **The Android app has never been compiled.** No Android SDK was available in the development
-   environment. Compose code may contain compile errors; CI is the first real build.
+   environment. Compose code may contain compile errors; CI is the first real build. The new Settings
+   endpoint editor, the Keystore-backed token store and the Agent-screen wiring in particular are
+   reviewed, never run.
 2. **No model runtime is integrated, and no model is downloadable.** There is no inference of any
    kind, and `Models` is empty. All 27 catalog entries are `CANDIDATE` with no recorded artifact
    SHA-256; `ModelCatalog.nothingDownloadable` is true and a test asserts it.
@@ -30,6 +32,8 @@ stakeholder as working.
 
 | Feature | Reality |
 |---|---|
+| **Agent execution** | The agent can now ask LAYA what an utterance is and answer honestly. It **cannot execute anything**: there is no capability executor, so every proposal says "nothing was executed". Approval and the capability registry are the authority; neither is wired to a real action. |
+| **LAYA decision quality** | Unmeasured. The only checkpoint this project ever ran is LAYA's randomly-initialised test fixture, whose answers are near-uniform. No confidence floor in `LayaQuestions.Policy` is calibrated against a real model. |
 | Voice (ASR, TTS, Voice Lab, speaker ID) | Not implemented. Voice Lab shows a status screen only. |
 | Vision (OCR, objects, VLM) | Not implemented. |
 | Agent Browser | Not implemented. Human-verification handoff — a hard requirement — does not exist. |

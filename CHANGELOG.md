@@ -7,7 +7,7 @@ after a musical instrument.
 
 ### Added
 
-**Domain core (`:core`, pure Kotlin, 382 unit tests) and app pure logic (66 tests)**
+**Domain core (`:core`, pure Kotlin, 406 unit tests) and app pure logic (66 tests)**
 - `json` — dependency-free JSON parser/writer that rejects duplicate keys, control characters,
   trailing content and malformed numbers, and reports precise error positions. Integers keep their
   literal so 64-bit values survive parsing.
@@ -22,6 +22,14 @@ after a musical instrument.
   promoted without a real artifact SHA-256, figures that carry their provenance (`DECLARED`,
   `ESTIMATED`, `MEASURED`), licence flags for non-commercial and gated weights, and a device pick that
   returns null rather than a model that will not fit.
+- `laya/v1/LayaUrlTransport` — the production HTTP transport (`java.net` only, so it is testable off
+  Android): no redirects, no cookies or caches, bounded response bytes, connect and read timeouts,
+  bearer token, https-only except loopback. Executed against a loopback socket, not reviewed.
+- `laya/v1/LayaAgent` — one utterance to one honest sentence: `Proposed`, `Clarify`, `Conversation`,
+  `Refused`, `EngineUnavailable`. Never throws, never claims execution, and distinguishes "not
+  configured" from "unreachable" from "rejected" using the engine's own words.
+- `app/data/LayaSettingsRepository` — endpoint in Keystore-encrypted prefs; refuses to store a token
+  when the Keystore is unavailable instead of falling back to plaintext; saving is not connecting.
 - `laya/v1` — the real LAYA contract, exercised against a running `laya-serve`: encode/decode for
   predict and batch, `usage.options` collapse detection, refusal with the true reason, retry only on
   503 and dropped connections. Captured payloads are replayed in `LayaLiveContractTest`.

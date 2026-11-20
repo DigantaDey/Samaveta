@@ -50,6 +50,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.samaveta.android.core.laya.LayaIntegrationState
+import com.samaveta.android.core.laya.v1.LayaAgent
+import com.samaveta.android.core.laya.v1.LayaV1State
 import com.samaveta.android.ui.PageScaffold
 import com.samaveta.android.ui.design.EmptyState
 import com.samaveta.android.ui.design.Radius
@@ -289,13 +291,15 @@ data class AgentUiState(
                 "You can still use direct tools — OCR, summarisation of pasted text, and memory — which " +
                 "run locally without it."
         } else {
-            "Describe a task. SAMAVETA will plan it, select models that actually fit this device, and report exactly what it verified."
+            "Describe a task. SAMAVETA will ask the decision engine what it is, check the answer against its own " +
+                "policy, and report exactly what it did — which, in this build, is never the action itself."
         }
 }
 
 @HiltViewModel
 class AgentViewModel @Inject constructor(
     @Named("layaState") layaState: LayaIntegrationState,
+    private val agent: LayaAgent,
     @Named("clock") private val clock: () -> Long,
 ) : ViewModel() {
 
@@ -309,32 +313,57 @@ class AgentViewModel @Inject constructor(
         if (trimmed.isEmpty()) return
         val seq = _state.value.turns.size
         val userTurn = AgentTurn("turn-u-$seq", TurnRoleUi.USER, trimmed)
-        _state.value = _state.value.copy(turns = _state.value.turns + userTurn, running = RunningTask("Thinking", null))
+        _state.value = _state.value.copy(
+            turns = _state.value.turns + userTurn,
+            // Named after what is actually happening. "Asking the decision engine" is true; a spinner
+            // labelled "Thinking" would imply this build reasons locally, which it does not.
+            running = RunningTask("Asking the decision engine", null),
+        )
 
         job = viewModelScope.launch {
-            // Decision-driven execution requires LAYA. Without it, the honest response is to say
-            // so — not to fabricate a plan or silently substitute a rule engine.
-            val reply = if (_state.value.layaState == LayaIntegrationState.NOT_CONFIGURED) {
-                AgentTurn(
-                    id = "turn-a-$seq",
-                    role = TurnRoleUi.ASSISTANT,
-                    text = "I can't plan this yet. SAMAVETA's decision engine (LAYA) is not connected in this build, " +
-                        "so task routing and model selection are unavailable. Nothing was executed.",
-                    disclaimer = "No action was taken.",
-                )
-            } else {
-                AgentTurn(
-                    id = "turn-a-$seq",
-                    role = TurnRoleUi.ASSISTANT,
-                    text = "Decision engine reported a plan, but execution is not enabled in this build.",
-                    disclaimer = "No action was taken.",
-                )
+            // LAYA is an HTTP call. It runs off the main thread, and `LayaAgent` never throws: a
+            // server that is down becomes a sentence, not a crash.
+            val reading = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                agent.handle(trimmed, java.util.Locale.getDefault().toLanguageTag())
             }
+            val engineState = agent.state()
             _state.value = _state.value.copy(
-                turns = _state.value.turns + reply,
+                turns = _state.value.turns + AgentTurn(
+                    id = "turn-a-$seq",
+                    role = TurnRoleUi.ASSISTANT,
+                    text = reading.userMessage,
+                    origin = originOf(reading),
+                    // A proposal that was not executed gets a disclaimer; a refusal explains itself.
+                    disclaimer = when (reading) {
+                        is LayaAgent.Turn.Proposed -> "Nothing was executed. Approval and the capability registry " +
+                            "are what would authorise an action, and this build has no executor."
+                        else -> null
+                    },
+                ),
                 running = null,
+                layaState = engineState.toIntegrationState(),
             )
         }
+    }
+
+    private fun originOf(reading: LayaAgent.Turn): String? = when (reading) {
+        is LayaAgent.Turn.Proposed -> "proposal"
+        is LayaAgent.Turn.Clarify -> "needs detail"
+        is LayaAgent.Turn.Conversation -> "no action"
+        is LayaAgent.Turn.Refused -> "refused"
+        is LayaAgent.Turn.EngineUnavailable -> "engine unavailable"
+    }
+
+    /**
+     * Maps the v1 connection state onto the legacy status vocabulary the screens were written against.
+     * `CONNECTED` maps to `VERIFIED` only because a health-confirmed live server *is* the strongest
+     * evidence this app can have; it is not a claim about decision quality, which remains unproven.
+     */
+    private fun LayaV1State.toIntegrationState(): LayaIntegrationState = when (this) {
+        LayaV1State.NOT_CONFIGURED -> LayaIntegrationState.NOT_CONFIGURED
+        LayaV1State.NEVER_REACHED -> LayaIntegrationState.CONFIGURED_UNVERIFIED
+        LayaV1State.CONNECTED -> LayaIntegrationState.VERIFIED
+        LayaV1State.DEGRADED -> LayaIntegrationState.DEGRADED
     }
 
     fun cancel() {
