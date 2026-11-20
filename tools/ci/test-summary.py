@@ -26,6 +26,21 @@ def main() -> int:
 
     if not xmls:
         print(f"::error::{label}: no JUnit XML results found — the tests did not run")
+        # Say *why*, in the annotation itself, so the diagnosis does not need a log download.
+        for base in sys.argv[2:]:
+            print(f"::error::{label}: looked in {base}")
+            root = base
+            while root and not os.path.isdir(root):
+                root = os.path.dirname(root)
+            if root and os.path.isdir(root):
+                for dirpath, dirnames, filenames in os.walk(root):
+                    depth = dirpath[len(root):].count(os.sep)
+                    if depth > 3:
+                        dirnames[:] = []
+                        continue
+                    print(f"::error::{label}:   {dirpath}  dirs={len(dirnames)} files={len(filenames)}")
+                    for name in sorted(filenames)[:8]:
+                        print(f"::error::{label}:     {name}")
         return 1
 
     tests = failures = errors = skipped = 0

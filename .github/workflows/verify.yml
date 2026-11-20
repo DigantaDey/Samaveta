@@ -76,7 +76,9 @@ jobs:
 
       # The core module is pure Kotlin, so its logic is tested without the Android toolchain.
       - name: Run core unit tests
-        run: ./gradlew :core:test --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee core-test.log
+        run: |
+          set -o pipefail
+          ./gradlew :core:test --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee core-test.log
 
       - name: Summarise failures as annotations
         if: failure()
@@ -86,7 +88,7 @@ jobs:
 
       - name: Report the executed test count
         if: always()
-        run: python3 tools/ci/test-summary.py "core unit tests" core/build/test-results/test core/build/reports/tests/test
+        run: python3 tools/ci/test-summary.py "core unit tests" core/build/test-results core/build/reports/tests
 
       - name: Upload test report
         if: always()
@@ -137,7 +139,9 @@ jobs:
         run: python3 tools/check/android-preflight.py
 
       - name: Compile the Android app
-        run: ./gradlew :app:compileDebugKotlin --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee compile.log
+        run: |
+          set -o pipefail
+          ./gradlew :app:compileDebugKotlin --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee compile.log
 
       - name: Summarise compile failures as annotations
         if: failure()
@@ -148,7 +152,9 @@ jobs:
       # Lint runs with warningsAsErrors, so this step fails on new lint debt rather than
       # accumulating it silently.
       - name: Lint
-        run: ./gradlew :app:lintDebug --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee lint.log
+        run: |
+          set -o pipefail
+          ./gradlew :app:lintDebug --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee lint.log
 
       - name: Summarise lint failures as annotations
         if: failure()
@@ -159,7 +165,9 @@ jobs:
             | while IFS= read -r line; do echo "::error::$line"; done
 
       - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee unit.log
+        run: |
+          set -o pipefail
+          ./gradlew :app:testDebugUnitTest --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee unit.log
 
       - name: Summarise unit-test failures as annotations
         if: failure()
@@ -169,10 +177,12 @@ jobs:
 
       - name: Report the executed test count
         if: always()
-        run: python3 tools/ci/test-summary.py ":app unit tests" app/build/test-results/testDebugUnitTest
+        run: python3 tools/ci/test-summary.py ":app unit tests" app/build/test-results app/build/reports/tests
 
       - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee assemble.log
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee assemble.log
 
       # A task can report success while producing nothing (a stale cache entry, a skipped variant).
       # The APK's existence is part of the contract, so it is asserted rather than assumed.
@@ -333,7 +343,9 @@ jobs:
           SAMAVETA_KEYSTORE_PASSWORD: ${{ secrets.SAMAVETA_KEYSTORE_PASSWORD }}
           SAMAVETA_KEY_ALIAS: ${{ secrets.SAMAVETA_KEY_ALIAS }}
           SAMAVETA_KEY_PASSWORD: ${{ secrets.SAMAVETA_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee release.log
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleRelease --stacktrace --console=plain --no-build-cache --no-configuration-cache 2>&1 | tee release.log
 
       - name: Summarise release-build failures as annotations
         if: failure()
