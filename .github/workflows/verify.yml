@@ -136,6 +136,9 @@ jobs:
             exit 1
           fi
 
+      - name: Repository hygiene checks
+        run: python3 tools/check/repo-hygiene.py
+
       - name: No mock LAYA wired into a release build
         run: |
           set -euo pipefail
