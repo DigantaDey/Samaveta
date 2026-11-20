@@ -1,0 +1,1 @@
+{"detail":"unknown model '/nonexistent/ckpt'; choose one of ['english', 'multilingual', 'typed-decisions', 'vega'] (or an alias: ['decisions', 'default', 'en', 'laya', 'laya-multilingual', 'laya-typed-decisions', 'ml', 'multi', 'typed', 'typed_decisions']), or omit model to let the router choose"}

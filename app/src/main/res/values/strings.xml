@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Only `app_name` is a live resource: it is what the launcher shows (referenced from
+  AndroidManifest.xml). Every other piece of user-facing copy in this app is a Compose string
+  literal next to the code that renders it, which is what `ui/design/` and `ui/screens/` do.
+
+  A table of unused strings used to sit here — nav labels, generic state titles, LAYA honesty
+  strings — duplicating copy that had since been written in Compose. They were never referenced by
+  anything, so a reader could reasonably believe editing them changed the product. They did not.
+  Lint was right to flag all 30, and the honest fix is deletion rather than a suppression.
+
+  If this app is ever localised, the compiler literals move here together, not before.
+-->
+<resources>
+    <string name="app_name">SAMAVETA</string>
+</resources>

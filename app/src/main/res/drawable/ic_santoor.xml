@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SAMAVETA 1.0 — SANTOOR release mark.
+
+  A santoor is a trapezoid hammered dulcimer with a bank of strings over two bridges. The mark is
+  reduced to: the body outline (a soft trapezoid), the two bridges, and seven strings — seven being
+  the number of notes in the scale the instrument is named for. Drawn on a 24dp grid with a 1.5
+  stroke so it stays legible at 16dp and matches the icon stroke weight in the design system.
+
+  Tint is applied at use site (accent copper on neutral surfaces); the path geometry itself is
+  colour-independent.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Body: trapezoid, wider at the bass end -->
+    <path
+        android:pathData="M3.25,7.5 L20.75,6 L20.75,18 L3.25,16.5 Z"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Bridges -->
+    <path
+        android:pathData="M7.4,8.9 L7.4,17.1"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M16.6,7.8 L16.6,16.2"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+
+    <!-- Strings spanning the soundboard -->
+    <path
+        android:pathData="M3.9,10.1 L20.1,9.6"
+        android:strokeColor="#000000"
+        android:strokeWidth="0.9" />
+    <path
+        android:pathData="M3.9,11.7 L20.1,11.2"
+        android:strokeColor="#000000"
+        android:strokeWidth="0.9" />
+    <path
+        android:pathData="M3.9,13.3 L20.1,12.8"
+        android:strokeColor="#000000"
+        android:strokeWidth="0.9" />
+</vector>

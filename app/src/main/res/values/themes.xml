@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The Compose theme owns every colour; these platform themes exist only to give the window a
+      correct background before first frame (avoiding a white flash in dark mode) and to style the
+      splash screen. values-night provides the dark variants.
+    -->
+    <style name="Theme.Samaveta" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/samaveta_canvas</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+
+    <style name="Theme.Samaveta.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/samaveta_canvas</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_santoor</item>
+        <item name="windowSplashScreenAnimationDuration">200</item>
+        <item name="postSplashScreenTheme">@style/Theme.Samaveta</item>
+    </style>
+</resources>
