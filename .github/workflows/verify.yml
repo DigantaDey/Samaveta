@@ -159,8 +159,18 @@ jobs:
       - name: Summarise lint failures as annotations
         if: failure()
         run: |
-          grep -E "^\S+\.(kt|xml):[0-9]+: (Error|Warning)" lint.log | head -n 60 \
-            | while IFS= read -r line; do echo "::error::$line"; done
+          # `lintDebug` prints at most a one-line summary on stdout, so the findings are read from
+          # the text report it writes. Without this the run says "35 errors" and names one of them.
+          set -euo pipefail
+          REPORT=app/build/outputs/lint-results-debug.txt
+          if [ -f "$REPORT" ]; then
+            echo "--- lint findings by issue id"
+            grep -oE '\[[A-Za-z]+\]$' "$REPORT" | sort | uniq -c | sort -rn || true
+            echo "--- lint report (first 120 lines)"
+            head -n 120 "$REPORT" | while IFS= read -r line; do echo "::error::$line"; done
+          else
+            echo "::error::$REPORT was not produced; lint did not reach the reporting stage"
+          fi
           grep -E "^> Task .* FAILED|^\* What went wrong" -A3 lint.log | head -n 40 \
             | while IFS= read -r line; do echo "::error::$line"; done
 
