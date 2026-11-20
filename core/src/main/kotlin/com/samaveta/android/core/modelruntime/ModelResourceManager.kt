@@ -5,7 +5,6 @@ import com.samaveta.android.core.device.ThermalLevel
 import com.samaveta.android.core.model.ModelBenchmarkResult
 import com.samaveta.android.core.model.ModelCapability
 import com.samaveta.android.core.model.ModelDescriptor
-import com.samaveta.android.core.model.ModelFormat
 import com.samaveta.android.core.model.ModelModule
 
 /**
