@@ -263,6 +263,8 @@ def main():
     check_hilt_providers()
     check_types_resolve()
     check_unresolved_names()
+    check_material_theme_members()
+    check_delegated_smart_casts()
     if problems:
         print(f"Android pre-flight: {len(problems)} problem(s)")
         for p in problems:
@@ -351,6 +353,74 @@ def check_unresolved_names():
                     and "setValue" not in declared:
                 fail(f"{os.path.relpath(path, ROOT)}: delegated `var` without "
                      f"`import androidx.compose.runtime.setValue`")
+
+
+
+# ---------------------------------------------------------------------------------------------
+# Compose object accessors.
+#
+# `MaterialTheme.textTertiary` compiled to `Unresolved reference: textTertiary`. The project's
+# semantic colours live on the `MaterialTheme.samaveta` extension, and Material's own accessors are
+# a closed set, so an unknown receiver member is always an error.
+# ---------------------------------------------------------------------------------------------
+MATERIAL_THEME_MEMBERS = {"colorScheme", "typography", "shapes", "samaveta"}
+
+
+def check_material_theme_members():
+    for d, _, fs in os.walk(os.path.join(ROOT, "app/src/main/kotlin")):
+        for f in fs:
+            if not f.endswith(".kt"):
+                continue
+            path = os.path.join(d, f)
+            text = re.sub(r"/\*.*?\*/", "", read(path), flags=re.S)
+            text = re.sub(r"//[^\n]*", "", text)
+            for member in set(re.findall(r"\bMaterialTheme\.([A-Za-z_][A-Za-z0-9_]*)", text)):
+                if member not in MATERIAL_THEME_MEMBERS:
+                    fail(f"{os.path.relpath(path, ROOT)}: MaterialTheme.{member} does not exist — "
+                         f"semantic colours are on MaterialTheme.samaveta")
+
+
+# ---------------------------------------------------------------------------------------------
+# Smart casts on delegated properties.
+#
+# `val state by vm.state.collectAsStateWithLifecycle()` makes every `state.x` read a delegated
+# property access, which Kotlin will not smart-cast:
+#   e: Smart cast to 'kotlin.String' is impossible, because 'deviceNote' is a delegated property.
+# Reading the value into a local first is the fix. Detected as: a nullable member of a delegated
+# property is null-checked, and the same expression is then used where a non-null type is needed.
+# ---------------------------------------------------------------------------------------------
+def check_delegated_smart_casts():
+    """Reads of a nullable member of a `by`-delegated property after a null check.
+
+    `val state by vm.state.collectAsStateWithLifecycle()` means `state.x` is a delegated property
+    access; Kotlin refuses to smart-cast it. Safe forms are excluded: `!!`, `?.`, and the null
+    comparisons themselves. Anything else must be read into a local first.
+    """
+    safe_tail = re.compile(r"\s*(!!|\?|\.)|\s*[=!]=\s*null")
+    for d, _, fs in os.walk(os.path.join(ROOT, "app/src/main/kotlin")):
+        for f in fs:
+            if not f.endswith(".kt"):
+                continue
+            path = os.path.join(d, f)
+            text = re.sub(r"/\*.*?\*/", "", read(path), flags=re.S)
+            text = re.sub(r"//[^\n]*", "", text)
+            lines = text.split("\n")
+            body = "\n".join(l for l in lines if not l.lstrip().startswith("import "))
+            delegated = set(re.findall(r"\b(?:val|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s+by\s", body))
+            for recv in sorted(delegated):
+                props = set(re.findall(
+                    r"\b%s\.([A-Za-z_][A-Za-z0-9_]*)\s*!=\s*null" % re.escape(recv), body))
+                for prop in sorted(props):
+                    expr = "%s.%s" % (recv, prop)
+                    for m in re.finditer(r"(?<![\w.])%s\b" % re.escape(expr), body):
+                        tail = body[m.end():body.find("\n", m.end()) if "\n" in body[m.end():] else len(body)]
+                        if safe_tail.match(tail):
+                            continue
+                        line = body[:m.start()].count("\n") + 1
+                        fail(f"{os.path.relpath(path, ROOT)}:{line}: '{expr}' is read from a "
+                             f"`by`-delegated property, so Kotlin cannot smart-cast it after the "
+                             f"null check — read it into a local first")
+                        break
 
 
 if __name__ == "__main__":

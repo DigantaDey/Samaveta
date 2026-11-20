@@ -62,7 +62,7 @@ fun SectionHeader(
         Text(
             text = title.uppercase(),
             style = TypographyTokens.label,
-            color = MaterialTheme.textTertiary,
+            color = MaterialTheme.samaveta.textTertiary,
         )
         action?.invoke()
     }

@@ -77,6 +77,9 @@ fun TodayScreen(
     viewModel: TodayViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // Read the nullable property once: `state` is delegated Compose state, so repeated property
+    // reads inside the LazyColumn builder cannot be smart-cast safely by Kotlin.
+    val deviceNote = state.deviceNote
     val colors = MaterialTheme.samaveta
 
     PageScaffold(
@@ -144,10 +147,10 @@ fun TodayScreen(
                 }
             }
 
-            if (state.deviceNote != null) {
+            if (deviceNote != null) {
                 item { Spacer(Modifier.height(Spacing.lg)) }
                 item { SectionHeader("This device") }
-                item { DeviceNoteRow(state.deviceNote) }
+                item { DeviceNoteRow(deviceNote) }
             }
         }
     }
