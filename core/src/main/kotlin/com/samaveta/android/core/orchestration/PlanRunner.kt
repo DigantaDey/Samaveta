@@ -126,9 +126,10 @@ object PlanValidator {
      * is a rejection, not a skipped step, because a plan we cannot fully understand is a plan we
      * cannot safely half-execute.
      */
-    fun validate(plan: LayaPlan): PlanValidation {
-        if (plan.steps.size > MAX_STEPS) {
-            return PlanValidation.Rejected("plan has ${plan.steps.size} steps; the limit is $MAX_STEPS")
+    fun validate(plan: LayaPlan, maxSteps: Int = MAX_STEPS): PlanValidation {
+        require(maxSteps in 1..MAX_STEPS) { "maxSteps must be between 1 and $MAX_STEPS" }
+        if (plan.steps.size > maxSteps) {
+            return PlanValidation.Rejected("plan has ${plan.steps.size} steps; the limit is $maxSteps")
         }
         val indices = plan.steps.map { it.index }
         if (indices != indices.sorted() || indices.distinct().size != indices.size) {
