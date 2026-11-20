@@ -73,8 +73,13 @@ def check_no_binaries():
 
 def check_no_mock_laya_in_app():
     for path in kotlin_files('app/src/main'):
-        if 'MockLayaTransport(' in open(path).read():
+        text = open(path).read()
+        if 'MockLayaTransport(' in text:
             fail(f'mock LAYA transport referenced from app/src/main: {os.path.relpath(path, ROOT)}')
+        # The v1 integration must talk to a real laya-serve; a fake transport in the app would mean
+        # the UI was being driven by scripted answers while claiming to be connected.
+        if 'LayaHttpTransport {' in text or 'LayaHttpTransport{' in text:
+            fail(f'inline fake LAYA v1 HTTP transport in app/src/main: {os.path.relpath(path, ROOT)}')
 
 
 def check_no_unearned_verified_claims():

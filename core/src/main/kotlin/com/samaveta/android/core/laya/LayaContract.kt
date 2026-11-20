@@ -1,5 +1,18 @@
 package com.samaveta.android.core.laya
 
+/**
+ * SUPERSEDED — this is the **PROPOSED planner contract**, kept for historical context and for the
+ * tests that pin its validation behaviour. It is **not** LAYA's interface.
+ *
+ * The real engine (github.com/NandhaKishorM/laya) is a typed decision model: it answers
+ * `choice` / `score` / `noul` questions about a state and returns calibrated probabilities. It does
+ * not emit plans, steps, capability requests or tool calls. The integration SAMAVETA actually uses
+ * lives in `core/.../laya/v1/` and is documented in `LAYA_INTEGRATION.md` §1.1.
+ *
+ * Nothing in this file may be wired to a server, and no UI may read it. Planning belongs to
+ * SAMAVETA (`orchestration/PlanGate`, `PlanRunner`), not to the external engine.
+ */
+
 import com.samaveta.android.core.device.Accelerator
 import com.samaveta.android.core.device.DeviceCapabilities
 import com.samaveta.android.core.device.DeviceProfile

@@ -1,93 +1,179 @@
 # LAYA INTEGRATION
 
-**Status: BLOCKED for production. Nothing in this build connects to a real LAYA engine.**
+**Status: contract RECONCILED against LAYA's published repository. Adapter + codec IMPLEMENTED and TESTED. End-to-end connection NOT yet verified against a running server, so the integration must be shown as `NEVER_REACHED`/`DEGRADED`, never "connected".**
 
-## 1. What is contractually true
+Source of truth for everything below: [`github.com/NandhaKishorM/laya`](https://github.com/NandhaKishorM/laya) —
+`docs/http-api.md`, `sdk/typescript/src/types.ts`, `sdk/typescript/src/validation.ts`,
+`sdk/python/tests/_support.py`, `laya-java/README.md`. Nothing here is invented.
 
-LAYA is an independently developed and maintained decision engine owned by a different developer.
-SAMAVETA must not:
+---
 
-- reimplement LAYA's decision logic internally,
-- invent SDK classes, method names or API shapes,
-- silently substitute a local planner that behaves like LAYA,
-- report the integration as operational before it is.
+## 1. What LAYA actually is
 
-As of this commit, **no production interface has been supplied**. Therefore:
+LAYA is a **non-autoregressive, typed decision engine** (Vega/vegaml lineage): a bidirectional encoder
+plus a typed head that answers `choice` / `score` / `noul` questions about one state in **one forward
+pass**, with calibrated probabilities and a router that picks a checkpoint per request. It is not a
+chat model and not a planner.
 
-| Item | State |
+| Fact | Consequence for SAMAVETA |
 |---|---|
-| Production transport | absent (`LayaConfig.NOT_CONFIGURED`, `transport = null`) |
-| Integration status at runtime | `NOT_CONFIGURED` — shown in Today, Agent, Settings and diagnostics |
-| Mock | `MockLayaTransport`, test-only, cannot be referenced from `app/src/main` (CI check) |
-| Decision logic inside SAMAVETA | none |
+| Answers are typed: `choice`, `score`, `noul` | SAMAVETA asks a fixed question set and maps answers to capabilities |
+| `confidence` means different things per type | never threshold it directly; see §4 |
+| It abstains, and reports conformal sets / OOD flags in the new engine | abstention is honoured, never overridden |
+| It never emits plans or tool calls | **SAMAVETA plans and executes; LAYA only decides** |
+| State is truncated by a token budget, visibly | truncation is a refusal condition, not a footnote |
+| Deployment is `laya-serve` over HTTP (`/v1/systemone`) | transport is HTTPS (or loopback), no embedded model |
 
-## 2. What SAMAVETA owns (and has implemented)
+### 1.1 The correction that mattered
 
-`core/src/main/kotlin/com/samaveta/android/core/laya/`
+Before this repository was available, SAMAVETA carried a **PROPOSED** contract
+(`LayaPlan`, `LayaPlanStep`, `StepKind`, `capability_invocation` steps) written from the product
+directive's assumption that LAYA would return multi-step plans. That assumption is **wrong**: LAYA
+returns typed answers about a state, and has no concept of a plan step, a capability, or a tool call.
 
-- **`LayaTransport`** — SAMAVETA-owned transport interface (`exchange(requestJson, timeoutMs)`).
-  Production kinds anticipated: `HTTP_JSON`, `LOCAL_IPC`, `SDK_LIBRARY`.
-- **`LayaAdapter`** — owns everything around the external engine: per-call timeout, deadline
-  enforcement (a request is never sent past its deadline), bounded retry **only** for transport
-  errors, cancellation, and error taxonomy.
-- **`LayaFailure`** — `NotConfigured`, `Unavailable`, `Timeout`, `Transport`, `MalformedResponse`,
-  `UnsupportedVersion`, `Rejected`. Every case surfaces in diagnostics and to the user.
-- **`LayaDecisionValidator`** — deterministically re-checks every proposed model and capability
-  against the registry, device, and authorized capability set *before* execution.
-- **`LayaRequestMapper`** — publishes device signals and the model inventory (with, per model, why it
-  is unavailable) so LAYA can decide using SAMAVETA's real constraints.
+Keeping the proposed contract as "the LAYA interface" would have been exactly the kind of
+invented SDK the directive forbids. Instead:
 
-## 3. The PROPOSED wire contract
+- `core/.../laya/v1/` now implements the **real** contract and is what the app should call.
+- `core/.../laya/` (the proposed planner contract) is retained **only** as the target of a
+  documentation-marked, test-only path. It is not wired to any server, and no UI reads it.
+- Planning lives entirely in SAMAVETA (`orchestration/PlanGate`, `PlanRunner`).
 
-`LayaWireContract` defines a schema marked **PROPOSED**, version
-`2026-11-proposed-1`. It exists so the mapping code, validation and tests can be written now and
-reconciled later. **It is not LAYA's contract.**
+## 2. Implemented in SAMAVETA
 
-Request (`type: decision_request`) carries:
+`core/src/main/kotlin/com/samaveta/android/core/laya/v1/`
 
-- `schema_version`, `request_id`, `session_id`, `utterance`, `locale`, `deadline_epoch_ms`
-- `context`: `recent_turns` (≤ 12, each ≤ 8000 chars), `active_task_id`, `user_confirmed_intents`
-- `device`: memory tier, RAM, storage, thermal level, battery, verified accelerators, API level,
-  ABIs, `offline`
-- `models[]`: id, installed, available, capabilities, input modalities, peak RAM, storage,
-  accelerators, context window, `unavailable_reason`
-- `capabilities[]`: the capability ids the user has actually granted
+| File | Responsibility |
+|---|---|
+| `LayaV1Contract.kt` | Request/answer types, `MinConfidence` buckets, `LayaUsage`, `LayaRouting`, the `LayaV1Failure` taxonomy |
+| `LayaV1Codec.kt` | Request encoding; **strict** response decoding (see §5) |
+| `LayaV1Client.kt` | `/health`, `/v1/route`, `/v1/systemone`, `/v1/systemone/batch`; timeout, bounded retry, admission back-off, connection state |
+| `LayaQuestions.kt` | The four questions SAMAVETA asks, and the deterministic policy that reads the answers |
 
-Response (`type: plan | clarification | no_plan`) must echo `request_id`; a mismatch, an unknown
-`schema_version` or an unknown step `kind` is rejected outright (`MalformedResponse` /
-`UnsupportedVersion`) and never guessed at.
+Tested by `LayaV1Test` (44 cases) using LAYA's own documented payload shapes.
 
-## 4. Reconciliation checklist (required before production)
+## 3. What SAMAVETA sends
 
-When LAYA's developer supplies the real interface, complete every item and record it in
-`DECISIONS.md`:
+`POST /v1/systemone` with a `state` and four questions. Stable question ids: `intent`, `capability`,
+`needs_confirmation`, `sensitivity`.
 
-- [ ] Obtain the official contract: version id, transport, endpoint/auth model, rate limits.
-- [ ] Replace `LAYA_WIRE_SCHEMA_VERSION` with LAYA's real version string.
-- [ ] Reconcile every field in `LayaRequestMapper` / `LayaWireContract` — names, types, requiredness.
-- [ ] Map LAYA's error model onto `LayaFailure` (do not swallow classes SAMAVETA cannot interpret).
-- [ ] Implement one `LayaTransport` for the real transport kind; keep `MockLayaTransport` for tests.
-- [ ] Change `AppModule.provideLayaAdapter()` to construct the configured adapter.
-- [ ] Confirm the ordering of decision vs. validation against LAYA's documented flow.
-- [ ] Run integration tests against a real LAYA instance; record pass/fail evidence.
-- [ ] Move `LayaIntegrationState` to `VERIFIED` only with that evidence.
-- [ ] Update `PROJECT_STATUS.md`, `FEATURE_MATRIX.md`, `KNOWN_LIMITATIONS.md`.
+```json
+{
+  "state": { "utterance": "Send a reply to Asha", "locale": "en-IN", "lang": "en" },
+  "questions": {
+    "intent":   { "type": "choice", "instructions": "...", "criteria": ["command", "question", "conversation"] },
+    "capability": { "type": "choice", "instructions": "...", "criteria": ["<every Capability id>"] },
+    "needs_confirmation": { "type": "noul", "instructions": "..." },
+    "sensitivity": { "type": "score", "instructions": "...",
+                     "criteria": ["trivial", "personal", "consequential", "irreversible"] }
+  }
+}
+```
 
-## 5. Degradation rules (implemented)
+- `model` is **omitted** by default so LAYA's router chooses. Pinning is available but not the
+  SAMAVETA default.
+- The `capability` criteria are generated from `Capability.ids()`, so every answer maps back to a real
+  capability and an answer naming anything else is refused as unusable.
+- Only the utterance, locale and at most 6 recent turns are sent. There is no transcript upload, no
+  device fingerprint, and no model inventory (LAYA serves its own checkpoints; SAMAVETA's local models
+  are its own concern).
+- **Network transparency:** the exact payload is inspectable before it is sent.
 
-When LAYA is not operational:
+## 4. Reading the answers — where the safety lives
 
-- The app remains fully usable for independent functions (browsing, memory, settings, model management).
-- Anything requiring planning says so plainly — the Agent screen replies that no plan was produced
-  and that **nothing was executed**. It does not fabricate a plan or silently run a rule-based
-  substitute.
-- The integration state is always visible (`NOT_CONFIGURED`, `MOCK_TEST_ONLY`, `DEGRADED`, …), and
-  `LayaIntegrationGuard.releaseBlockers()` returns a non-empty list so a release cannot ship claiming
-  a working integration.
+`LayaQuestions.read()` produces exactly one of: `Proposal`, `Unsure`, `NotACommand`, `Unusable`.
+Only `Proposal` can reach an executor, and even then it goes through `ActionPipeline`.
 
-## 6. Privacy of the request payload
+Order of checks, which is the safety order:
 
-The payload is limited to: the current utterance, up to 12 recent turns, an optional active task id,
-explicitly confirmed intents, device conditions, model availability and granted capability ids.
-It never contains: message bodies, contact details, file contents, screenshots, audio, or memory
-records. If SAMAVETA adds a field, it must be justified here and in `docs/PRIVACY.md`.
+1. **Truncation** — if `usage.truncated` or `state_tokens_dropped > 0`, refuse. Every answer was
+   computed on less evidence than SAMAVETA sent.
+2. **Abstention** — `abstained` or `unevaluated` on any answer ⇒ `Unsure`. `unevaluated` is *not* a
+   pass; LAYA is explicit that reporting it as one would be "the same lie as reporting it as a flag".
+3. **Intent floor** (`0.50` by default) — below it, ask rather than guess.
+4. **Capability floor** (`0.55` by default) — below it, the request is understood but not the action.
+5. **Capability mapping** — an id SAMAVETA does not have is `Unusable`, never silently dropped.
+
+### The three confidence numbers are not interchangeable
+
+LAYA documents this and SAMAVETA respects it:
+
+| Field | Meaning | Used for |
+|---|---|---|
+| `answer_confidence` | `max(p)`; same on all three answer types | reported, and the quantity LAYA's gate thresholds on |
+| `confidence` | normalised entropy (choice/score), `max(p_yes,p_no)` on noul | **never** thresholded across types |
+| `x_jev_confidence` | Jev-compatibility number, absent in strict mode | reported only; never gated on |
+
+SAMAVETA applies its own floors to probabilities and **never** treats a probability as a verdict.
+
+### A model cannot grant itself permission
+
+`requiresConfirmation` is `capability.mutatesState || noulYes >= 0.40 || sensitivity >= 2.0`.
+LAYA answering "no confirmation needed" (p = 0.02) does not remove confirmation for a state-changing
+capability, because `CapabilityAuthorizer` forces it regardless. Tested both ways.
+
+## 5. Strict decoding
+
+`LayaV1Codec` rejects an entire response — never partially trusts it — when it finds:
+
+- an unknown answer `type`, or no `type`;
+- a `choice` label absent from its own `probabilities`;
+- any probability outside `[0,1]`, non-numeric, or non-finite (NaN/Infinity poison comparisons);
+- an unknown `abstention` value;
+- a `score` answer without a `legend`, or a non-numeric `score`;
+- an empty `answers` object, a non-object payload, or malformed JSON.
+
+This mirrors LAYA's own client (`sdk/typescript/src/response.ts` validates the same invariants) and is
+stricter in one respect that matters for SAMAVETA: a rejected payload becomes
+`LayaV1Failure.Malformed` *before* any answer is used to choose an action.
+
+## 6. Transport and failure handling
+
+| LAYA behaviour | SAMAVETA handling |
+|---|---|
+| `LAYA_API_KEY` set, unauthenticated `/health` | Only `{"status":"ok"}` decodes; `loaded` is empty and is not treated as an error |
+| `503` from the admission limiter | `LayaV1Failure.Overloaded`, retried **once** |
+| `5xx` | `ServerError`, retried **once** |
+| `422` with `{"detail": [...]}` or `{"error": {...}}` | `Rejected(status, code, detail)` — the field that was wrong is shown; **never retried** |
+| Connection refused / DNS | `Unreachable`; client state becomes `DEGRADED` |
+| Timeout | `Timeout`; **never retried** — the server may have run the inference |
+| Idle unload (`loaded: []`) | Normal; only affects the diagnostics display |
+
+Endpoint policy: **https required**, with an explicit loopback exception (`127.0.0.1`, `localhost`,
+`[::1]`) for an on-device `laya-serve` in development. Plaintext to a remote host is refused at
+construction, because a rewritten response is an instruction injection.
+
+Connection state is `NOT_CONFIGURED` → `NEVER_REACHED` → `CONNECTED` (only after a successful
+`/health` or call) and `DEGRADED` after a failure. Only `CONNECTED` may be described as connected.
+
+## 7. Deployment options (all real, none embedded)
+
+| Option | Requires | Notes |
+|---|---|---|
+| Remote `laya-serve` over HTTPS | A server the user or operator runs | Default assumption; needs a network connection, so **not** local-first |
+| Loopback `/local/` server on the same device | Termux or a companion process | Only realistic route to genuinely offline LAYA on Android |
+| `laya-java` (ONNX Runtime) in-process | `laya.onnx` + checkpoint on device | Upstream says **"Not implemented yet: … Android."** Blocked until upstream supports it; `onnxruntime-android` exists, but shipping an unsupported path would be a claim we cannot back |
+
+LAYA is an **external dependency**, so "offline operation" for the agent narrative cannot be
+satisfied by LAYA on a phone today. That is recorded in `KNOWN_LIMITATIONS.md` rather than papered
+over. SAMAVETA's own local behaviour (models, memory, browser policy, persistence) remains offline.
+
+## 8. What is still missing
+
+- [ ] Run the client against a real `laya-serve` and record `LayaHealth` output (proves transport,
+      not just codec).
+- [ ] Wire `AppModule` to construct a configured `LayaV1Client` from user settings, with the key in
+      the Android Keystore (never in prefs, never in the APK).
+- [ ] Replace the placeholder `send` composition in `AgentScreen` with `LayaQuestions.read()` output.
+- [ ] Calibrate `Policy` floors on real utterances. The shipped defaults are conservative guesses,
+      not measurements — they must be labelled as such in diagnostics until calibrated.
+- [ ] Decide the `laya-java` question with upstream (the blocker is on their side).
+
+## 9. Rules SAMAVETA will not break
+
+1. No LAYA decision logic is reimplemented inside SAMAVETA.
+2. No mock or scripted LAYA response ships in `app/src/main` (enforced by
+   `tools/check/repo-hygiene.py`).
+3. No capability is executed because a model said so; `ActionPipeline` +
+   `CapabilityAuthorizer` alone authorise, and `ActionVerifier` alone reports success.
+4. The integration is never described as connected until `/health` says so.
