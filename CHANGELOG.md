@@ -7,7 +7,7 @@ after a musical instrument.
 
 ### Added
 
-**Domain core (`:core`, pure Kotlin, 359 unit tests) and app pure logic (55 tests)**
+**Domain core (`:core`, pure Kotlin, 382 unit tests) and app pure logic (66 tests)**
 - `json` — dependency-free JSON parser/writer that rejects duplicate keys, control characters,
   trailing content and malformed numbers, and reports precise error positions. Integers keep their
   literal so 64-bit values survive parsing.
@@ -17,6 +17,14 @@ after a musical instrument.
 - `model` — `ModelDescriptor` with mandatory licence, checksum and RAM/peak-RAM data;
   `ModelRegistry.evaluate` admitting or refusing a model against installation state, integrity,
   accelerator evidence, ABI, peak RAM, storage and device class.
+- `model/ModelCatalog` — the 27 supplied model candidates in one place, with a verification ladder
+  (`CANDIDATE` → `ARTIFACT_VERIFIED` → `BENCHMARKED` → `APPROVED`, plus `REJECTED`) that cannot be
+  promoted without a real artifact SHA-256, figures that carry their provenance (`DECLARED`,
+  `ESTIMATED`, `MEASURED`), licence flags for non-commercial and gated weights, and a device pick that
+  returns null rather than a model that will not fit.
+- `laya/v1` — the real LAYA contract, exercised against a running `laya-serve`: encode/decode for
+  predict and batch, `usage.options` collapse detection, refusal with the true reason, retry only on
+  503 and dropped connections. Captured payloads are replayed in `LayaLiveContractTest`.
 - `laya` — versioned, explicitly PROPOSED wire contract with strict decoding; `LayaAdapter` owning
   timeouts, deadline enforcement, bounded retry and the error taxonomy; `LayaDecisionValidator`
   that re-checks every proposed model and capability before execution.

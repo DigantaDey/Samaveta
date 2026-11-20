@@ -36,7 +36,7 @@ Traces the product directive to implementation. Full per-feature status lives in
 | ID | Requirement | Enforced at | Status |
 |---|---|---|---|
 | R-5.1 | Do not train foundational models | Policy doc; no training code | IMPLEMENTED |
-| R-5.2 | ≥3 alternatives compared before integration | `MODEL_CATALOG.md` | IN_PROGRESS (identified, not benchmarked) |
+| R-5.2 | ≥3 alternatives compared before integration | `MODEL_CATALOG.md`, `model/ModelCatalog.kt` | IN_PROGRESS — 27 candidates enumerated with per-role alternatives and licence/gating flags; no benchmark comparison yet |
 | R-5.3 | Licensing documented incl. commercial/redistribution | `LicenseInfo`, `MODEL_LICENSES.md` | TESTED (enforcement), PENDING (entries) |
 | R-5.4 | Registry fields mandatory (incl. SHA-256) | `ModelDescriptor` invariants | TESTED |
 

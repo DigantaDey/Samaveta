@@ -10,8 +10,8 @@
 
 | Area | Executed? | Result |
 |---|---|---|
-| `core` unit tests | **Yes** — real JVM | 359/359 pass |
-| App pure-logic unit tests | **Yes** — real JVM | 55/55 pass |
+| `core` unit tests | **Yes** — real JVM | 382/382 pass |
+| App pure-logic unit tests | **Yes** — real JVM | 66/66 pass |
 | Android UI compilation | No — no Android SDK in this environment | Deferred to CI |
 | Lint / static analysis | No | Deferred to CI |
 | Instrumentation tests | No | Not written yet |
@@ -24,7 +24,7 @@ $ ./tools/jvm-verify/verify.sh
 == compiling core tests
 == compiling app pure logic (Android-free sources only)
 == running tests
-Tests run: 414, Passed: 414, Failed: 0, Skipped: 0
+Tests run: 448, Passed: 448, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -201,6 +201,40 @@ Reconciled against `github.com/NandhaKishorM/laya` — `docs/http-api.md`,
 interface at all — reconciling it against the repository was the only way to find this; it is now
 marked SUPERSEDED. (2) A nullable `lang` value silently vanished from the encoded request because
 `"key" to nullableValue` builds a `Pair<Any?, Any?>` inside the JSON builder and is then discarded.
+
+### 3.6c3 LAYA live payloads and the model catalog
+
+`LayaLiveContractTest` (15 tests) replays bodies captured from a **running `laya-serve`** — LAYA's own
+offline fixture server, since the real weights were not downloadable here.
+
+| Case | Result |
+|---|---|
+| A real `200` prediction decodes: choice, `noul`, `score` with legend | PASS |
+| `usage.options` with `distinct < total` is recognised as collapsed evidence | PASS |
+| A collapsed-option response is refused with the real reason, not "0 tokens dropped" | PASS |
+| The batch body is `{"states":[...], "questions":{...}}` — the per-state form is rejected | PASS |
+| `/health` with loaded checkpoints decodes; `device_is_preference` is not asserted true | PASS |
+| A real `401` body surfaces as an auth failure, not a parse error | PASS |
+
+**Three real defects found by running the server rather than the docs.** The batch encoder sent a shape
+`laya-serve` rejects with `400`; `usage.options` was being dropped, which hid the fact that every
+option had collapsed onto one span; and the refusal text for that case claimed no tokens were lost.
+All three are fixed, and the captured bodies (`core/src/test/resources/laya-live/`) make them
+regressions.
+
+`ModelCatalogTest` (17 tests) covers the 27 supplied models as a gate rather than a gallery.
+
+| Case | Result |
+|---|---|
+| All 27 listed once, every one `CANDIDATE`, no artifact hash, nothing downloadable | PASS |
+| Constructor refuses a verified status without a real SHA-256 | PASS |
+| `toDescriptor` throws for a candidate; carries licence flags once a hash exists | PASS |
+| Non-commercial entries are exactly the two CC-BY-NC-SA TTS models and never recommended | PASS |
+| Gated entries recorded; a pick prefers ungated when anything ungated fits | PASS |
+| Abliterated/uncensored entries flagged and never the default pick | PASS |
+| Estimates are labelled `ESTIMATED`, context lengths `DECLARED`, no `MEASURED` anywhere | PASS |
+| Peak RAM always exceeds artifact size; the size estimate is MB not bytes | PASS |
+| Best pick is deterministic and returns null rather than a model that will not fit | PASS |
 
 ### 3.6d Intelligence ingestion
 

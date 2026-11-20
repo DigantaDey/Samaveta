@@ -7,13 +7,19 @@ stakeholder as working.
 
 1. **The Android app has never been compiled.** No Android SDK was available in the development
    environment. Compose code may contain compile errors; CI is the first real build.
-2. **No model runtime is integrated.** There is no inference of any kind. `Models` is empty.
-3. **LAYA is not connected, and cannot be offline on a phone.** Its real contract is reconciled — it is
-   a typed decision engine, not a planner — and the client is tested against its documented payloads,
-   but no live server has been contacted. LAYA's own Java SDK lists Android as not implemented, and the
-   only shipped deployment is an HTTP server, so an agent narrative driven by LAYA needs a network
-   connection. Planning, model routing and
-   autonomous execution are unavailable; the app says so in Today, Agent and Settings.
+2. **No model runtime is integrated, and no model is downloadable.** There is no inference of any
+   kind, and `Models` is empty. All 27 catalog entries are `CANDIDATE` with no recorded artifact
+   SHA-256; `ModelCatalog.nothingDownloadable` is true and a test asserts it.
+3. **LAYA is not connected in the app, and cannot be offline on a phone.** Its real contract is
+   reconciled — it is a typed decision engine, not a planner — and the client, codec and answer policy
+   are exercised against payloads captured from a **running `laya-serve`**. That run used LAYA's own
+   offline fixture server, whose checkpoint is a tiny randomly-initialised model: it proves the wire
+   contract and the refusal path and proves nothing about prediction quality, so no confidence
+   threshold here is calibrated. Real weights could not be downloaded from this environment, so
+   `LayaV1Client` has never spoken to a production model. LAYA's own Java SDK lists Android as not
+   implemented, and the only shipped deployment is an HTTP server, so a LAYA-driven agent needs a
+   network connection. Planning, model routing and autonomous execution are unavailable in the app;
+   it says so in Today, Agent and Settings.
 4. **No device verification.** Every performance, thermal, battery and accelerator claim is
    unproven. GPU/NPU are reported `UNKNOWN`.
 5. **No APK / signed release.** Release signing requires keystore material supplied out-of-band.

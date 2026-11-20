@@ -16,8 +16,10 @@ it. Fabricated or extrapolated figures are worse than missing ones, because they
 
 ## 1. Why benchmarks gate the catalog
 
-`MODEL_CATALOG.md` lists candidates as `CANDIDATE` until eight conditions are met, and five of them
-are measurements. The catalog therefore cannot promote a model without this document. The direction
+`MODEL_CATALOG.md` lists candidates as `CANDIDATE` until nine conditions are met, and five of them are
+measurements. The ladder is implemented, not just documented: `VerificationStatus` in
+`model/ModelCatalog.kt` (`CANDIDATE` → `ARTIFACT_VERIFIED` → `BENCHMARKED` → `APPROVED`, plus
+`REJECTED`) refuses to construct an entry that claims a verified status without a real SHA-256. The catalog therefore cannot promote a model without this document. The direction
 of the dependency matters: benchmarks do not exist to produce a nice table, they exist to refuse
 models that would make SAMAVETA unpleasant or unusable on the devices it claims to support.
 
@@ -153,7 +155,7 @@ methodology: writing a table by hand invites transcription errors and accidental
 | Blocker | Consequence |
 |---|---|
 | No model runtime integrated | Nothing to measure; no load, decode or memory figures |
-| No model artifacts or licences cleared | Cannot download, cannot redistribute, cannot benchmark |
+| No model artifacts or licences cleared | Cannot download, cannot redistribute, cannot benchmark. All 27 catalog entries sit at `CANDIDATE` with no artifact hash. |
 | No physical device in this environment | Thermal, battery and sustained-drift rows impossible |
 | No named eval datasets selected | Quality rows would have no denominator |
 
@@ -162,8 +164,9 @@ precisely so that "we have not measured it" is a visible state rather than an om
 
 ## 7. Promotion rule
 
-A `MODEL_CATALOG.md` entry moves `CANDIDATE → EVALUATED` only when sections 3.1–3.7 have rows for it on
-at least the `REFERENCE` tier, and `EVALUATED → APPROVED` only when the licence conditions in
+A catalog entry moves `CANDIDATE → ARTIFACT_VERIFIED` only when a real distribution has been fetched
+and its SHA-256 recorded, `ARTIFACT_VERIFIED → BENCHMARKED` only when sections 3.1–3.7 have rows for it
+on at least the `REFERENCE` tier, and `BENCHMARKED → APPROVED` only when the licence conditions in
 `MODEL_LICENSES.md` are confirmed and the offline run has passed. No exceptions, and no promotion on
 the strength of a vendor's published benchmark: vendor numbers are a screening filter, not evidence
 about this app on these devices.

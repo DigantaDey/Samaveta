@@ -3,7 +3,7 @@
 **Product:** SAMAVETA (समवेत) — *Intelligence, United.*
 **First major release:** SAMAVETA 1.0 — **SANTOOR**
 **Last updated:** 2026-11-20
-**Build state:** `core` + app pure-logic **compile and pass 424/424 unit tests** (executed locally).
+**Build state:** `core` + app pure-logic **compile and pass 448/448 unit tests** (executed locally).
 Android UI layer: **written, not yet compiled** — see *Verification environment* below.
 
 ---
@@ -18,7 +18,7 @@ What is real and proven:
 - A pure-Kotlin `core` module containing the security, LAYA-integration, memory, information-intelligence,
   device-health, model-admission, browser-policy and action-orchestration logic. Every one of
   those subsystems has executed unit tests
-  (424 tests, all passing) run with a real JVM.
+  (448 tests, all passing) run with a real JVM.
 - Android project scaffolding that configures the toolchain correctly (AGP 8.7.3 / Kotlin 2.0.21 /
   Compose BOM 2024.12.01 / Hilt / Room / DataStore / WorkManager, minSdk 28, arm64-only).
 - A completed design system and brand identity, including the SANTOOR release mark.
@@ -29,10 +29,13 @@ What is **not** real yet, and must not be described as working:
 - No model runtime is integrated. No model is downloadable. `Models` is empty by design.
 - No voice, vision/OCR or Android capability *integration* exists; the browser and capability
   policy layers are tested, but nothing is connected to a WebView, an SMS manager or a listener.
-- LAYA's **contract has been reconciled** against LAYA's published repository, and the v1 client,
-  codec and question set are tested — but **no call has been made to a running `laya-serve`**, so the
-  integration is `NEVER_REACHED`, not connected. LAYA is also a typed decision engine, not a planner:
-  SAMAVETA does its own planning.
+- LAYA's **contract has been reconciled** against LAYA's published repository and exercised against a
+  **running `laya-serve`**: real `200` prediction and batch payloads, plus its health, `400`, `401`,
+  `422` and `500` responses, are captured in `core/src/test/resources/laya-live/` and replayed by
+  `LayaLiveContractTest`. That run used LAYA's own offline fixture server, whose checkpoint is a tiny
+  randomly-initialised model — it proves the wire contract, the decoding and the refusal path, and it
+  proves **nothing** about model quality or calibration. Real LAYA weights could not be downloaded
+  here. LAYA is also a typed decision engine, not a planner: SAMAVETA does its own planning.
 - No APK has been produced or installed.
 
 ## 2. Verification environment (why some claims are absent)
@@ -43,7 +46,7 @@ JDK or Android SDK is preinstalled.
 
 To avoid simply *asserting* that code works, the project carries its own verification harness
 (`tools/jvm-verify/`) which compiles the modules with a standalone Kotlin compiler and executes the
-JUnit-style tests. That is the source of the 424/424 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
+JUnit-style tests. That is the source of the 448/448 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
 
 **Consequence:** the Android layer's correctness is *reviewed*, not *executed*, in this environment.
 CI (`.github/workflows/verify.yml`) is the mechanism that closes that gap — it builds, lints and
@@ -55,8 +58,8 @@ unit-tests the Android module and produces a debug APK.
 |---|---|---|---|
 | 0 | Repository + feasibility audit | **VERIFIED** | `docs/DECISIONS.md` D-001…D-003 |
 | 1 | Native foundation (structure, design system, theme, DI, CI) | **IMPLEMENTED** (UI not compiled) | `app/src/main/kotlin/.../ui/design`, CI workflow |
-| 2 | LAYA integration | **transport/codec TESTED against a real server; a successful prediction UNVERIFIED** | `LayaV1Test` (44), `LayaLiveContractTest` (10); `LAYA_INTEGRATION.md` |
-| 3 | Model infrastructure | **PARTIAL**: registry, admission, downloader verified; no runtime | `ModelAdmission`, `ModelDownloaderTest` |
+| 2 | LAYA integration | **TESTED against a real `laya-serve` on its offline fixture checkpoint**; quality on real weights unproven | `LayaV1Test` (44), `LayaLiveContractTest` (15); `LAYA_INTEGRATION.md` |
+| 3 | Model infrastructure | **PARTIAL**: registry, admission, downloader and the 27-model catalog TESTED; no runtime, nothing downloadable | `ModelAdmission`, `ModelCatalog`, `ModelDownloaderTest` |
 | 4 | Visual perception (OCR/objects/VLM) | **NOT_STARTED** | — |
 | 5 | Voice (ASR/TTS/Voice Lab/speaker ID) | **NOT_STARTED** | — |
 | 6 | Android capabilities | **PARTIAL**: authorization + action pipeline + plan runner TESTED; no Android integration | `SecurityTest`, `ActionPipelineTest`, `PlanRunnerTest` |
@@ -75,7 +78,7 @@ Status vocabulary is the directive's: `NOT_STARTED`, `IN_PROGRESS`, `IMPLEMENTED
 Executed locally by `tools/jvm-verify/verify.sh`:
 
 ```
-Tests run: 424, Passed: 424, Failed: 0, Skipped: 0
+Tests run: 448, Passed: 448, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -100,20 +103,23 @@ VERDICT: PASS
 | `HttpFeedFetcherTest` | 15 | https-only, no redirects, 304 vs 3xx, content-type and size limits |
 | `PlanGateTest` | 13 | Composition of device validation and authority validation |
 | `LayaV1Test` | 44 | The real LAYA contract: encoding, strict decoding, retry policy, answer policy |
-| `LayaLiveContractTest` | 10 | Payloads captured from a running `laya-serve` |
+| `LayaLiveContractTest` | 15 | Payloads captured from a running `laya-serve`: prediction, batch, health, 401 |
+| `ModelCatalogTest` | 17 | The 27 supplied models: no invented hashes, licence gates, estimate provenance, refusal over guessing |
 
 These are *unit* tests. There are **no** instrumentation tests, **no** UI tests and **no**
 physical-device results yet; `TEST_REPORT.md` records that gap explicitly.
 
 ## 5. Known blockers
 
-1. **LAYA end-to-end unverified** — the real contract is reconciled and the client is tested against
-   LAYA's documented payloads, but nothing has run against a live server, and LAYA's Java SDK marks
-   Android "not implemented yet". A remote server also breaks the local-first promise on a phone.
+1. **LAYA quality unverified** — the transport, codec and refusal path are proven against a running
+   `laya-serve`, but only on its offline fixture checkpoint; real weights were not obtainable here, so
+   no confident prediction and no calibration figure exists. LAYA's Java SDK also marks Android
+   "not implemented yet", and a remote server breaks the local-first promise on a phone.
    (`LAYA_INTEGRATION.md` §7–8)
 2. **No Android SDK / Maven access in this environment** — Android compilation is deferred to CI.
-3. **No model distribution rights or model artifacts** — nothing downloadable yet;
-   `MODEL_CATALOG.md` lists candidates with licensing status pending verification.
+3. **No model artifacts, and no licences approved** — all 27 catalog entries are `CANDIDATE` with no
+   recorded SHA-256, so nothing is downloadable. Two TTS candidates are non-commercial and four are
+   gated. (`MODEL_CATALOG.md`, `MODEL_LICENSES.md`)
 4. **No physical device runs** — every performance, thermal, battery and accelerator claim is
    unproven. The app reports `UNKNOWN` for GPU/NPU rather than asserting support.
 

@@ -17,15 +17,17 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | LAYA-02 | Client: timeout, bounded retry, admission, error taxonomy | TESTED | `LayaV1Client.kt` | 422 never retried; 503 retried once; state only CONNECTED after a real call |
 | LAYA-03 | Strict response decoding (reject whole, never partially trust) | TESTED | `LayaV1Codec.kt` | 10 rejection cases |
 | LAYA-04 | Deterministic answer policy (abstention, truncation, floors) | TESTED | `LayaQuestions.kt` | model cannot remove mandatory confirmation |
-| LAYA-05 | Transport/codec against a real `laya-serve` | TESTED | `core/src/test/resources/laya-live/` | health, route, 400, 422×2, 500 captured live; `LayaLiveContractTest` (10) |
-| LAYA-06a | A successful prediction end to end | **BLOCKED** | — | Checkpoint download blocked here; no 200 ever captured |
+| LAYA-05 | Transport/codec against a real `laya-serve` | TESTED | `core/src/test/resources/laya-live/` | Replayed from a running server: prediction, batch, health, 400, 401, 422×2, 500; `LayaLiveContractTest` (15) |
+| LAYA-06a | A successful prediction end to end | TESTED (fixture checkpoint only) | `core/.../laya/v1/LayaQuestions.kt` | A real `200` was captured from LAYA's offline fixture server and is decoded, gated and refused correctly. Quality on real weights remains unproven. |
+| LAYA-06c | Prediction quality on real LAYA weights | **BLOCKED** | — | Weight download unreachable from this environment |
 | LAYA-06b | `laya-java` on-device (offline LAYA) | **BLOCKED** | — | Upstream: "Not implemented yet: … Android" |
 | LAYA-07 | PROPOSED planner contract | SUPERSEDED | `core/.../laya/LayaContract.kt` | Not LAYA's interface; wired to nothing |
 | MOD-01 | Model Registry with full metadata | TESTED | `model/ModelDescriptor.kt`, `ModelAdmission.kt` | invariant tests |
 | MOD-02 | Admission: RAM/storage/accelerator/ABI/integrity | TESTED | `ModelRegistry.evaluate` | incl. 3GB device refusal |
 | MOD-03 | Secure download with SHA-256 gate | TESTED | `app/.../ModelDownloader.kt` | `ModelDownloaderTest` (11) |
 | MOD-04 | Model runtime (LiteRT-LM etc.) | NOT_STARTED | — | No runtime integrated |
-| MOD-05 | Model catalog with real artifacts | NOT_STARTED | — | Licensing pending (`MODEL_CATALOG.md`) |
+| MOD-05 | Model catalog (27 candidates) with verification gating | TESTED | `model/ModelCatalog.kt` | `ModelCatalogTest` (17); all `CANDIDATE`, no artifact hashes |
+| MOD-07 | Model catalog with real artifacts | NOT_STARTED | — | Nothing downloadable (`MODEL_CATALOG.md`) |
 | MOD-06 | Thermal/battery/memory-aware scheduling | TESTED (policy) | `device/DeviceHealth.kt` | policy only; not wired to WorkManager |
 | VIS-01 | OCR pipeline | NOT_STARTED | — | — |
 | VIS-02 | Object detection | NOT_STARTED | — | — |
@@ -58,7 +60,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | SEC-05 | No false success | TESTED | `ActionVerifier` | type-enforced |
 | SEC-06 | Encrypted storage via Keystore | NOT_STARTED | — | dependency declared only |
 | CAP-01 | Notification/messaging/calendar/files capabilities | NOT_STARTED | — | authorization layer ready |
-| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 424/424 |
+| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 448/448 |
 | QLT-02 | Lint + static analysis in CI | IMPLEMENTED | CI `lintDebug` | unrun here |
 | QLT-03 | Instrumentation / UI tests | NOT_STARTED | — | — |
 | QLT-04 | Physical-device verification | NOT_STARTED | — | **blocks any VERIFIED status** |

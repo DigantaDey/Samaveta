@@ -178,9 +178,15 @@ over. SAMAVETA's own local behaviour (models, memory, browser policy, persistenc
 ## 8. What is still missing
 
 - [x] Run against a real `laya-serve`: health, routing and all rejection shapes captured.
-- [ ] Capture a **successful prediction** (200). Blocked here: Hugging Face is unreachable, so no
-      checkpoint could be loaded and every `/v1/systemone` returned 500. This is the single remaining
-      verification gap, and it is the one that would prove the answer decoder end to end.
+- [x] Capture a **successful prediction** (200) and a **successful batch** (200). Done by running
+      LAYA's own offline fixture server (`tests/sdk_server_fixture.py`), which builds a tiny
+      checkpoint in-process, so no download was needed. Everything the decoder does is now exercised
+      against real bytes. **What this does not prove:** the fixture checkpoint is randomly
+      initialised, so its answers are near-uniform and it abstains at any sane threshold. Wire
+      contract: proven. Prediction quality and calibration: still unproven, and no confidence
+      threshold in `LayaQuestions.Policy` is calibrated against real weights.
+- [ ] Fetch real LAYA weights (Hugging Face unreachable from this environment) and re-run the
+      capture with `LAYA_PRELOAD=1` to produce a quality/calibration record.
 - [ ] Wire `AppModule` to construct a configured `LayaV1Client` from user settings, with the key in
       the Android Keystore (never in prefs, never in the APK).
 - [ ] Replace the placeholder `send` composition in `AgentScreen` with `LayaQuestions.read()` output.
