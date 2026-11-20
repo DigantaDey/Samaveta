@@ -10,8 +10,8 @@
 
 | Area | Executed? | Result |
 |---|---|---|
-| `core` unit tests | **Yes** — real JVM | 80/80 pass |
-| App pure-logic unit tests | **Yes** — real JVM | 40/40 pass |
+| `core` unit tests | **Yes** — real JVM | 152/152 pass |
+| App pure-logic unit tests | **Yes** — real JVM | 11/11 pass |
 | Android UI compilation | No — no Android SDK in this environment | Deferred to CI |
 | Lint / static analysis | No | Deferred to CI |
 | Instrumentation tests | No | Not written yet |
@@ -24,7 +24,7 @@ $ ./tools/jvm-verify/verify.sh
 == compiling core tests
 == compiling app pure logic (Android-free sources only)
 == running tests
-Tests run: 120, Passed: 120, Failed: 0, Skipped: 0
+Tests run: 163, Passed: 163, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -96,7 +96,41 @@ until explicit unmute; store evicts least-recently-used; feedback capped; cosine
 dimension-checked. All PASS. **A test caught a real defect:** a later positive signal silently
 un-muted a muted topic; fixed and covered.
 
-### 3.5 Information intelligence
+### 3.5 Model output and prompt injection
+
+| Case | Result |
+|---|---|
+| JSON extracted from fenced/prose-wrapped output | PASS |
+| Malformed JSON *inside* the object rejected (never repaired) | PASS |
+| Braces and escapes inside strings handled | PASS |
+| Missing field rejected, path names the field | PASS |
+| Wrong type rejected (no coercion of `42` to `"42"`, no truncation of `3.7`) | PASS |
+| Unknown field rejected (common injection carrier) | PASS |
+| Enum/allow-list and integer bounds enforced | PASS |
+| Nested list element failure names `steps[1]` | PASS |
+| Error messages never echo raw model output | PASS |
+| Detects instruction override / role impersonation / credential exfiltration | PASS |
+| Detects capability escalation / tool-call smuggling / zero-width hidden text | PASS |
+| Ordinary news content not flagged | PASS |
+
+**Note on scope.** `InjectionDetector` is a detector, not a boundary. The boundary is the
+deterministic validator + authorizer pair; the detector exists so untrusted content is quarantined
+and surfaced in diagnostics.
+
+### 3.6 Task lifecycle and recovery (Scenario J)
+
+| Case | Result |
+|---|---|
+| Running task recovered as INTERRUPTED with its in-flight step recorded | PASS |
+| Verified steps preserved across recovery | PASS |
+| Interrupted task cannot resume without an explicit user decision | PASS |
+| UNCONFIRMED never auto-retried | PASS |
+| Retry after failure with a side effect requires confirmation | PASS |
+| Resume point skips already-verified steps | PASS |
+| Terminal states reject further transitions | PASS |
+| Side-effect flag is sticky across later read-only steps | PASS |
+
+### 3.7 Information intelligence
 
 Dedupe collapses the same event across outlets, and **does not** merge stories whose numeric tokens
 differ (a test caught "Android 16" merging into "Android 17"); tracking parameters stripped; story

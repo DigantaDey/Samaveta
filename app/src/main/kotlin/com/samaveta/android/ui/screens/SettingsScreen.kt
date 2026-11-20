@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -34,11 +33,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.samaveta.android.BuildConfig
 import com.samaveta.android.core.device.DeviceProfile
-import com.samaveta.android.core.laya.LayaIntegrationGuard
+import com.samaveta.android.data.PreferencesRepository
 import com.samaveta.android.core.laya.LayaIntegrationState
 import com.samaveta.android.ui.Destination
 import com.samaveta.android.ui.PageScaffold
-import com.samaveta.android.ui.design.HairlineDivider
 import com.samaveta.android.ui.design.Radius
 import com.samaveta.android.ui.design.SectionHeader
 import com.samaveta.android.ui.design.Spacing
@@ -286,7 +284,7 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @Named("layaState") layaState: LayaIntegrationState,
-    private val preferences: com.samaveta.android.data.PreferencesRepository,
+    private val preferences: PreferencesRepository,
     private val device: DeviceProfile,
 ) : ViewModel() {
 

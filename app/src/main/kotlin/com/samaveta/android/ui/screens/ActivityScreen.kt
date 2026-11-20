@@ -1,7 +1,7 @@
 package com.samaveta.android.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.samaveta.android.core.security.ActionStatus
 import com.samaveta.android.ui.PageScaffold
 import com.samaveta.android.ui.design.EmptyState
+import com.samaveta.android.ui.design.Radius
 import com.samaveta.android.ui.design.HairlineDivider
 import com.samaveta.android.ui.design.Spacing
 import com.samaveta.android.ui.design.TypographyTokens
@@ -70,7 +70,7 @@ fun ActivityScreen(
         } else {
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = bottomInset + Spacing.xl),
+                contentPadding = PaddingValues(bottom = bottomInset + Spacing.xl),
             ) {
                 items(state.entries, key = { it.id }) { entry ->
                     ActivityEntryRow(entry)
@@ -99,7 +99,7 @@ private fun ActivityEntryRow(entry: ActivityEntry) {
             Box(
                 Modifier
                     .size(6.dp)
-                    .clip(RoundedCornerShape(com.samaveta.android.ui.design.Radius.pill))
+                    .clip(RoundedCornerShape(Radius.pill))
                     .background(tone),
             )
             Spacer(Modifier.width(Spacing.md))

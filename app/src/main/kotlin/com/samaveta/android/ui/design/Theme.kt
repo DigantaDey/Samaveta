@@ -2,6 +2,7 @@ package com.samaveta.android.ui.design
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -326,12 +327,12 @@ fun SamavetaTheme(
         MaterialTheme(
             colorScheme = colors.toMaterialScheme(),
             typography = SamavetaTypography,
-            shapes = androidx.compose.material3.Shapes(
-                extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(Radius.sm),
-                small = androidx.compose.foundation.shape.RoundedCornerShape(Radius.sm),
-                medium = androidx.compose.foundation.shape.RoundedCornerShape(Radius.md),
-                large = androidx.compose.foundation.shape.RoundedCornerShape(Radius.lg),
-                extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(Radius.lg),
+            shapes = Shapes(
+                extraSmall = RoundedCornerShape(Radius.sm),
+                small = RoundedCornerShape(Radius.sm),
+                medium = RoundedCornerShape(Radius.md),
+                large = RoundedCornerShape(Radius.lg),
+                extraLarge = RoundedCornerShape(Radius.lg),
             ),
             content = content,
         )

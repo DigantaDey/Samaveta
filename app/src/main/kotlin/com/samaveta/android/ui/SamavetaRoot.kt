@@ -5,8 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,16 +40,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.samaveta.android.ui.design.HairlineDivider
-import com.samaveta.android.ui.design.Radius
 import com.samaveta.android.ui.design.SamavetaTheme
 import com.samaveta.android.ui.design.Spacing
 import com.samaveta.android.ui.design.ThemeMode
 import com.samaveta.android.ui.design.TypographyTokens
 import com.samaveta.android.ui.design.samaveta
+import com.samaveta.android.ui.screens.ActivityScreen
 import com.samaveta.android.ui.screens.AgentScreen
 import com.samaveta.android.ui.screens.AutomationScreen
 import com.samaveta.android.ui.screens.BrowserScreen
@@ -113,12 +117,12 @@ private fun ScreenContent(
     onNavigate: (Destination) -> Unit,
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
-    bottomInset: androidx.compose.ui.unit.Dp,
+    bottomInset: Dp,
 ) {
     when (destination) {
         Destination.TODAY -> TodayScreen(onNavigate = onNavigate, bottomInset = bottomInset)
         Destination.AGENT -> AgentScreen(bottomInset = bottomInset)
-        Destination.ACTIVITY -> com.samaveta.android.ui.screens.ActivityScreen(bottomInset = bottomInset)
+        Destination.ACTIVITY -> ActivityScreen(bottomInset = bottomInset)
         Destination.INTELLIGENCE -> IntelligenceScreen(bottomInset = bottomInset)
         Destination.MEMORY -> MemoryScreen(bottomInset = bottomInset)
         Destination.MODELS -> ModelsScreen(bottomInset = bottomInset)
@@ -209,7 +213,7 @@ private fun BottomBar(current: Destination, onSelect: (Destination) -> Unit) {
                             tint = colors.textSecondary,
                             modifier = Modifier.size(18.dp),
                         )
-                        androidx.compose.foundation.layout.Spacer(Modifier.width(Spacing.md))
+                        Spacer(Modifier.width(Spacing.md))
                         Text(destination.label, style = TypographyTokens.body, color = colors.textPrimary)
                     }
                 }
@@ -254,7 +258,7 @@ private fun BarItem(
             Modifier
                 .width(14.dp)
                 .height(2.dp)
-                .background(if (selected) colors.accent else androidx.compose.ui.graphics.Color.Transparent),
+                .background(if (selected) colors.accent else Color.Transparent),
         )
     }
 }
@@ -266,7 +270,7 @@ fun PageScaffold(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     trailing: (@Composable () -> Unit)? = null,
-    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = MaterialTheme.samaveta
     Column(modifier.fillMaxSize()) {
@@ -280,29 +284,12 @@ fun PageScaffold(
             Column(Modifier.weight(1f)) {
                 Text(title, style = TypographyTokens.display, color = colors.textPrimary)
                 if (subtitle != null) {
-                    androidx.compose.foundation.layout.Spacer(Modifier.height(Spacing.xs))
+                    Spacer(Modifier.height(Spacing.xs))
                     Text(subtitle, style = TypographyTokens.body, color = colors.textSecondary)
                 }
             }
             trailing?.invoke()
         }
         content()
-    }
-}
-
-/** Placeholder used while a surface is implemented; it states the real status rather than faking UI. */
-@Composable
-fun NotImplementedSurface(name: String, detail: String) {
-    val colors = MaterialTheme.samaveta
-    Box(Modifier.fillMaxSize().padding(Spacing.gutter), contentAlignment = Alignment.TopCenter) {
-        Column(
-            Modifier
-                .background(colors.surfaceElevated, androidx.compose.foundation.shape.RoundedCornerShape(Radius.md))
-                .padding(Spacing.lg),
-        ) {
-            Text("$name is not available in this build", style = TypographyTokens.heading, color = colors.textPrimary)
-            androidx.compose.foundation.layout.Spacer(Modifier.height(Spacing.sm))
-            Text(detail, style = TypographyTokens.body, color = colors.textSecondary)
-        }
     }
 }

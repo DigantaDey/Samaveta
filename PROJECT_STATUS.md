@@ -3,7 +3,7 @@
 **Product:** SAMAVETA (समवेत) — *Intelligence, United.*
 **First major release:** SAMAVETA 1.0 — **SANTOOR**
 **Last updated:** 2026-11-20
-**Build state:** `core` + app pure-logic **compile and pass 120/120 unit tests** (executed locally).
+**Build state:** `core` + app pure-logic **compile and pass 163/163 unit tests** (executed locally).
 Android UI layer: **written, not yet compiled** — see *Verification environment* below.
 
 ---
@@ -17,7 +17,7 @@ What is real and proven:
 
 - A pure-Kotlin `core` module containing the security, LAYA-integration, memory, information-intelligence,
   device-health and model-admission logic. Every one of those subsystems has executed unit tests
-  (120 tests, all passing) run with a real JVM.
+  (163 tests, all passing) run with a real JVM.
 - Android project scaffolding that configures the toolchain correctly (AGP 8.7.3 / Kotlin 2.0.21 /
   Compose BOM 2024.12.01 / Hilt / Room / DataStore / WorkManager, minSdk 28, arm64-only).
 - A completed design system and brand identity, including the SANTOOR release mark.
@@ -38,7 +38,7 @@ JDK or Android SDK is preinstalled.
 
 To avoid simply *asserting* that code works, the project carries its own verification harness
 (`tools/jvm-verify/`) which compiles the modules with a standalone Kotlin compiler and executes the
-JUnit-style tests. That is the source of the 120/120 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
+JUnit-style tests. That is the source of the 163/163 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
 
 **Consequence:** the Android layer's correctness is *reviewed*, not *executed*, in this environment.
 CI (`.github/workflows/verify.yml`) is the mechanism that closes that gap — it builds, lints and
@@ -70,7 +70,7 @@ Status vocabulary is the directive's: `NOT_STARTED`, `IN_PROGRESS`, `IMPLEMENTED
 Executed locally by `tools/jvm-verify/verify.sh`:
 
 ```
-Tests run: 120, Passed: 120, Failed: 0, Skipped: 0
+Tests run: 163, Passed: 163, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -78,11 +78,13 @@ VERDICT: PASS
 |---|---|---|
 | `JsonTest` | 11 | Untrusted JSON parsing: duplicate keys, control chars, precision, error positions |
 | `LayaContractTest` | 13 | Wire contract, correlation, unknown version/step rejection, retry policy, deadline |
-| `LayaDecisionValidatorTest` | 16 | No unvalidated model/capability can execute; confirmation forcing |
+| `LayaDecisionValidatorTest` | 19 | No unvalidated model/capability can execute; pending-vs-unauthorized; confirmation forcing |
 | `SecurityTest` | 20 | Deny-by-default, emergency stop, single-use confirmation, no false success |
 | `MemoryTest` | 26 | Feedback weighting, damping, decay, sticky mutes, store caps, vector math |
 | `IntelligenceTest` | 24 | Dedupe guards, attribution, coverage limitations, honest dates |
 | `ModelDownloaderTest` | 11 | HTTPS-only, traversal safety, SHA-256 gate, atomic install |
+| `StructuredOutputTest` | 22 | No lenient parsing of model output; injection detection |
+| `TaskStateMachineTest` | 16 | Process recovery, no duplicate side effects, retry policy |
 
 These are *unit* tests. There are **no** instrumentation tests, **no** UI tests and **no**
 physical-device results yet; `TEST_REPORT.md` records that gap explicitly.

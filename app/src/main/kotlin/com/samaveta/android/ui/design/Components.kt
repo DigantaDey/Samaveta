@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,25 +58,22 @@ fun SectionHeader(
         Text(
             text = title.uppercase(),
             style = TypographyTokens.label,
-            color = MaterialThemeTheme.textTertiary,
+            color = MaterialTheme.textTertiary,
         )
         action?.invoke()
     }
 }
 
-/** Convenience alias so this file reads cleanly without importing MaterialTheme everywhere. */
-private val MaterialThemeTheme
-    @Composable get() = androidx.compose.material3.MaterialTheme
 
 /** A hairline divider: 1px of the border colour, never a full-opacity line. */
 @Composable
-fun HairlineDivider(modifier: Modifier = Modifier, inset: androidx.compose.ui.unit.Dp = Spacing.gutter) {
+fun HairlineDivider(modifier: Modifier = Modifier, inset: Dp = Spacing.gutter) {
     Box(
         modifier
             .fillMaxWidth()
             .padding(horizontal = inset)
             .height(0.7.dp)
-            .background(MaterialThemeTheme.samaveta.border),
+            .background(MaterialTheme.samaveta.border),
     )
 }
 
@@ -101,27 +99,27 @@ fun EmptyState(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialThemeTheme.samaveta.textTertiary,
+            tint = MaterialTheme.samaveta.textTertiary,
             modifier = Modifier.size(28.dp),
         )
         Spacer(Modifier.height(Spacing.lg))
         Text(
             text = title,
             style = TypographyTokens.heading,
-            color = MaterialThemeTheme.samaveta.textPrimary,
+            color = MaterialTheme.samaveta.textPrimary,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(Spacing.sm))
         Text(
             text = body,
             style = TypographyTokens.body,
-            color = MaterialThemeTheme.samaveta.textSecondary,
+            color = MaterialTheme.samaveta.textSecondary,
             textAlign = TextAlign.Center,
         )
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(Spacing.md))
             TextButton(onClick = onAction) {
-                Text(actionLabel, style = TypographyTokens.bodyEmphasis, color = MaterialThemeTheme.samaveta.accent)
+                Text(actionLabel, style = TypographyTokens.bodyEmphasis, color = MaterialTheme.samaveta.accent)
             }
         }
     }
@@ -141,18 +139,18 @@ fun ErrorState(
             .padding(horizontal = Spacing.xxl, vertical = Spacing.xxxl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(title, style = TypographyTokens.heading, color = MaterialThemeTheme.samaveta.textPrimary)
+        Text(title, style = TypographyTokens.heading, color = MaterialTheme.samaveta.textPrimary)
         Spacer(Modifier.height(Spacing.sm))
         Text(
             body,
             style = TypographyTokens.body,
-            color = MaterialThemeTheme.samaveta.textSecondary,
+            color = MaterialTheme.samaveta.textSecondary,
             textAlign = TextAlign.Center,
         )
         if (onRetry != null) {
             Spacer(Modifier.height(Spacing.md))
             TextButton(onClick = onRetry) {
-                Text("Try again", style = TypographyTokens.bodyEmphasis, color = MaterialThemeTheme.samaveta.accent)
+                Text("Try again", style = TypographyTokens.bodyEmphasis, color = MaterialTheme.samaveta.accent)
             }
         }
     }
@@ -160,7 +158,7 @@ fun ErrorState(
 
 /** Skeleton block with a slow shimmer. Used only while real content is loading. */
 @Composable
-fun SkeletonBlock(modifier: Modifier = Modifier, height: androidx.compose.ui.unit.Dp = 14.dp) {
+fun SkeletonBlock(modifier: Modifier = Modifier, height: Dp = 14.dp) {
     val transition = rememberInfiniteTransition(label = "skeleton")
     val alpha by transition.animateFloat(
         initialValue = 0.55f,
@@ -172,7 +170,7 @@ fun SkeletonBlock(modifier: Modifier = Modifier, height: androidx.compose.ui.uni
         modifier
             .height(height)
             .clip(RoundedCornerShape(Radius.sm))
-            .background(MaterialThemeTheme.samaveta.skeleton.copy(alpha = alpha)),
+            .background(MaterialTheme.samaveta.skeleton.copy(alpha = alpha)),
     )
 }
 
@@ -186,7 +184,7 @@ fun StatusPill(
     tone: StatusTone,
     modifier: Modifier = Modifier,
 ) {
-    val colors = MaterialThemeTheme.samaveta
+    val colors = MaterialTheme.samaveta
     val (fg, bg) = when (tone) {
         StatusTone.LIVE -> colors.accent to colors.accentContainer
         StatusTone.NEUTRAL -> colors.textSecondary to colors.surfaceElevated
@@ -219,9 +217,9 @@ enum class StatusTone { LIVE, NEUTRAL, CAUTION, DANGER }
 @Composable
 fun SurfaceBlock(
     modifier: Modifier = Modifier,
-    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    val colors = MaterialThemeTheme.samaveta
+    val colors = MaterialTheme.samaveta
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -239,7 +237,7 @@ fun AccessibleIcon(
     icon: ImageVector,
     description: String,
     modifier: Modifier = Modifier,
-    tint: androidx.compose.ui.graphics.Color = MaterialThemeTheme.samaveta.textSecondary,
+    tint: Color = MaterialTheme.samaveta.textSecondary,
 ) {
     Icon(
         imageVector = icon,

@@ -1,6 +1,5 @@
 package com.samaveta.android.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,30 +8,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Build
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Psychology
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.samaveta.android.core.device.DeviceProfile
-import com.samaveta.android.core.laya.LayaIntegrationState
-import com.samaveta.android.ui.Destination
 import com.samaveta.android.ui.PageScaffold
-import com.samaveta.android.ui.design.EmptyState
-import com.samaveta.android.ui.design.HairlineDivider
 import com.samaveta.android.ui.design.SectionHeader
 import com.samaveta.android.ui.design.Spacing
 import com.samaveta.android.ui.design.StatusPill
@@ -42,7 +28,6 @@ import com.samaveta.android.ui.design.TypographyTokens
 import com.samaveta.android.ui.design.samaveta
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import javax.inject.Named
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 

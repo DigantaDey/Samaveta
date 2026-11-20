@@ -29,7 +29,7 @@ not installable yet.
 
 | | |
 |---|---|
-| Domain logic (`:core`) | **120/120 unit tests pass** — executed on a real JVM |
+| Domain logic (`:core`) | **163/163 unit tests pass** — executed on a real JVM |
 | Android app (`:app`) | Written; **never compiled** in this environment (no Android SDK) |
 | LAYA decision engine | **Not connected** — no production contract supplied. Status: `NOT_CONFIGURED` |
 | Models | None integrated or downloadable |

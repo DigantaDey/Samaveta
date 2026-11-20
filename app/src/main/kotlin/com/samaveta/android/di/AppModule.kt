@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
+import com.samaveta.android.BuildConfig
 import com.samaveta.android.app.SystemThemeObserver
 import com.samaveta.android.core.device.Accelerator
 import com.samaveta.android.core.device.AcceleratorAvailability
@@ -80,7 +81,7 @@ object AppModule {
     @Provides
     @Singleton
     @Named("buildIsRelease")
-    fun provideBuildIsRelease(): Boolean = !com.samaveta.android.BuildConfig.DEBUG
+    fun provideBuildIsRelease(): Boolean = !BuildConfig.DEBUG
 
     @Provides
     @Singleton
