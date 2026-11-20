@@ -3,7 +3,7 @@
 **Product:** SAMAVETA (समवेत) — *Intelligence, United.*
 **First major release:** SAMAVETA 1.0 — **SANTOOR**
 **Last updated:** 2026-11-20
-**Build state:** `core` + app pure-logic **compile and pass 357/357 unit tests** (executed locally).
+**Build state:** `core` + app pure-logic **compile and pass 370/370 unit tests** (executed locally).
 Android UI layer: **written, not yet compiled** — see *Verification environment* below.
 
 ---
@@ -18,7 +18,7 @@ What is real and proven:
 - A pure-Kotlin `core` module containing the security, LAYA-integration, memory, information-intelligence,
   device-health, model-admission, browser-policy and action-orchestration logic. Every one of
   those subsystems has executed unit tests
-  (357 tests, all passing) run with a real JVM.
+  (370 tests, all passing) run with a real JVM.
 - Android project scaffolding that configures the toolchain correctly (AGP 8.7.3 / Kotlin 2.0.21 /
   Compose BOM 2024.12.01 / Hilt / Room / DataStore / WorkManager, minSdk 28, arm64-only).
 - A completed design system and brand identity, including the SANTOOR release mark.
@@ -40,7 +40,7 @@ JDK or Android SDK is preinstalled.
 
 To avoid simply *asserting* that code works, the project carries its own verification harness
 (`tools/jvm-verify/`) which compiles the modules with a standalone Kotlin compiler and executes the
-JUnit-style tests. That is the source of the 357/357 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
+JUnit-style tests. That is the source of the 370/370 result. See `docs/DEVELOPMENT_ENVIRONMENT.md`.
 
 **Consequence:** the Android layer's correctness is *reviewed*, not *executed*, in this environment.
 CI (`.github/workflows/verify.yml`) is the mechanism that closes that gap — it builds, lints and
@@ -72,7 +72,7 @@ Status vocabulary is the directive's: `NOT_STARTED`, `IN_PROGRESS`, `IMPLEMENTED
 Executed locally by `tools/jvm-verify/verify.sh`:
 
 ```
-Tests run: 357, Passed: 357, Failed: 0, Skipped: 0
+Tests run: 370, Passed: 370, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 
@@ -95,6 +95,7 @@ VERDICT: PASS
 | `FeedParserTest` | 19 | Hostile RSS/Atom input, entity handling, absent dates stay unknown |
 | `IntelligenceCoordinatorTest` | 21 | Partial vs total source failure, ETags, muted topics |
 | `HttpFeedFetcherTest` | 15 | https-only, no redirects, 304 vs 3xx, content-type and size limits |
+| `PlanGateTest` | 13 | Composition of device validation and authority validation |
 
 These are *unit* tests. There are **no** instrumentation tests, **no** UI tests and **no**
 physical-device results yet; `TEST_REPORT.md` records that gap explicitly.

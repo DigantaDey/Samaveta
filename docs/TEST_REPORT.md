@@ -10,7 +10,7 @@
 
 | Area | Executed? | Result |
 |---|---|---|
-| `core` unit tests | **Yes** — real JVM | 302/302 pass |
+| `core` unit tests | **Yes** — real JVM | 315/315 pass |
 | App pure-logic unit tests | **Yes** — real JVM | 55/55 pass |
 | Android UI compilation | No — no Android SDK in this environment | Deferred to CI |
 | Lint / static analysis | No | Deferred to CI |
@@ -24,7 +24,7 @@ $ ./tools/jvm-verify/verify.sh
 == compiling core tests
 == compiling app pure logic (Android-free sources only)
 == running tests
-Tests run: 357, Passed: 357, Failed: 0, Skipped: 0
+Tests run: 370, Passed: 370, Failed: 0, Skipped: 0
 VERDICT: PASS
 ```
 

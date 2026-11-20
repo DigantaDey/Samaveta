@@ -36,6 +36,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | BRW-03 | Reader mode / bounded page context | TESTED | `ReaderMode` | sentence-scoped boilerplate removal, sentence-boundary truncation |
 | SEC-07 | Action pipeline: authorize→confirm→execute→verify→audit | TESTED | `security/ActionPipeline.kt` | `ActionPipelineTest` (26) |
 | ORC-01 | LAYA plan execution under SAMAVETA authority | TESTED | `orchestration/PlanRunner.kt` | `PlanRunnerTest` (23); rejects undeclared capabilities |
+| ORC-02 | Both validators enforced before any step runs | TESTED | `orchestration/PlanGate.kt` | `PlanGateTest` (13) |
 | INT-01 | Deduplication | TESTED | `intelligence/InformationPipeline.kt` | 4 dedupe tests |
 | INT-02 | Entity extraction with provenance | TESTED | `EntityExtractor` | method + confidence asserted |
 | INT-03 | Date handling without fabrication | TESTED | `Dates` | unknown stays unknown |
@@ -54,7 +55,7 @@ Status: `NOT_STARTED` · `IN_PROGRESS` · `IMPLEMENTED` (code exists, compiles w
 | SEC-05 | No false success | TESTED | `ActionVerifier` | type-enforced |
 | SEC-06 | Encrypted storage via Keystore | NOT_STARTED | — | dependency declared only |
 | CAP-01 | Notification/messaging/calendar/files capabilities | NOT_STARTED | — | authorization layer ready |
-| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 357/357 |
+| QLT-01 | Unit tests executed | TESTED | `build/jvm-verify` | 370/370 |
 | QLT-02 | Lint + static analysis in CI | IMPLEMENTED | CI `lintDebug` | unrun here |
 | QLT-03 | Instrumentation / UI tests | NOT_STARTED | — | — |
 | QLT-04 | Physical-device verification | NOT_STARTED | — | **blocks any VERIFIED status** |
